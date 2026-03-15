@@ -38,7 +38,7 @@ export default function SignInPage() {
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/`,
+          redirectTo: 'https://nura-ai.vercel.app/',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

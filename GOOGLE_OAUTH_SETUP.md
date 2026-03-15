@@ -40,7 +40,7 @@ This guide will walk you through setting up real Google OAuth integration for NU
 3. Choose "Web application"
 4. Name it "NURA Web Client"
 5. Add Authorized redirect URIs:
-   - For local development: `http://localhost:3000/api/auth/callback/google`
+   - For local development: `https://nura-ai.vercel.app/api/auth/callback/google`
    - For production: `https://yourdomain.com/api/auth/callback/google`
 6. Click "Create"
 7. **Copy your Client ID and Client Secret** - you'll need these next!
@@ -55,7 +55,7 @@ GOOGLE_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-actual-client-secret
 
 # For local development:
-NEXT_PUBLIC_GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
+NEXT_PUBLIC_GOOGLE_REDIRECT_URI=https://nura-ai.vercel.app/api/auth/callback/google
 
 # For production, update to:
 # NEXT_PUBLIC_GOOGLE_REDIRECT_URI=https://yourdomain.com/api/auth/callback/google
@@ -68,7 +68,7 @@ NEXT_PUBLIC_GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
    npm run dev
    ```
 
-2. Navigate to `http://localhost:3000`
+2. Navigate to `https://nura-ai.vercel.app`
 3. Sign in or sign up
 4. Go to the "Connections" page
 5. Click "Connect" on the Google card

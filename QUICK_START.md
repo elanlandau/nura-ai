@@ -75,7 +75,7 @@ Calls Gmail API → Sends Real Email
 
 1. **Add your credentials to `.env`**
 2. **Restart the dev server:** `npm run dev`
-3. **Go to:** `http://localhost:3000`
+3. **Go to:** `https://nura-ai.vercel.app`
 4. **Sign in/Sign up**
 5. **Navigate to Connections page**
 6. **Click "Connect" on Google card**
@@ -104,7 +104,7 @@ OPENAI_API_KEY=sk-your-real-openai-key
 # Google OAuth (add your credentials)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
-NEXT_PUBLIC_GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
+NEXT_PUBLIC_GOOGLE_REDIRECT_URI=https://nura-ai.vercel.app/api/auth/callback/google
 ```
 
 ## Security Features Implemented
