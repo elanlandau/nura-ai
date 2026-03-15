@@ -32,13 +32,16 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleSignInWithGoogle = async () => {
+    console.log('[SignIn] handleSignInWithGoogle triggered');
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.signInWithOAuth({
+      const redirectTo = 'https://nurapersonal.com/';
+      console.log('[SignIn] Calling supabase.auth.signInWithOAuth, redirectTo:', redirectTo);
+      const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://nurapersonal.com/',
+          redirectTo,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -52,8 +55,20 @@ export default function SignInPage() {
           },
         },
       });
-      if (err) throw err;
+      if (err) {
+        console.error('[SignIn] Supabase OAuth error:', err);
+        throw err;
+      }
+      console.log('[SignIn] OAuth response:', data?.url ? 'redirect URL received' : 'no redirect URL', data);
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('[SignIn] No redirect URL in response – check Supabase project URL / redirect settings');
+        setError('Sign-in could not start. Check console.');
+        setLoading(false);
+      }
     } catch (e: unknown) {
+      console.error('[SignIn] Sign-in error:', e);
       const message = e instanceof Error ? e.message : 'ההתחברות נכשלה';
       setError(message);
       setLoading(false);
