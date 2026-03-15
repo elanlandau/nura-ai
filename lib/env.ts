@@ -12,6 +12,8 @@ export function getGoogleRedirectUri(requestOrigin?: string): string {
     return fromRequest || process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || '';
   }
 
-  // Production (Vercel): use explicit or derive from VERCEL_URL
-  return process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || `https://${process.env.VERCEL_URL}${GOOGLE_CALLBACK_PATH}` || fromRequest;
+  // Production: use explicit redirect, or NEXTAUTH_URL/NEXT_PUBLIC_APP_URL, or VERCEL_URL
+  const appUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  const base = appUrl || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+  return process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || (base ? `${base.replace(/\/$/, '')}${GOOGLE_CALLBACK_PATH}` : '') || fromRequest;
 }
