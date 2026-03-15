@@ -1,19 +1,9 @@
 /**
- * Production-ready env helpers. On Vercel, VERCEL_URL is set automatically.
- * Local dev: always uses request origin so localhost works regardless of .env.
+ * Production base URL and Google OAuth callback – hardcoded to nura-ai.vercel.app.
  */
-const GOOGLE_CALLBACK_PATH = '/api/auth/callback/google';
+const PRODUCTION_BASE = 'https://nura-ai.vercel.app';
+const GOOGLE_CALLBACK_URI = 'https://nura-ai.vercel.app/api/auth/callback/google';
 
-export function getGoogleRedirectUri(requestOrigin?: string): string {
-  const fromRequest = requestOrigin ? `${requestOrigin}${GOOGLE_CALLBACK_PATH}` : '';
-
-  // Local development (no VERCEL_URL): prefer request origin so localhost:3001 always works
-  if (!process.env.VERCEL_URL) {
-    return fromRequest || process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || '';
-  }
-
-  // Production: use explicit redirect, or NEXTAUTH_URL/NEXT_PUBLIC_APP_URL, or VERCEL_URL
-  const appUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL;
-  const base = appUrl || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
-  return process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || (base ? `${base.replace(/\/$/, '')}${GOOGLE_CALLBACK_PATH}` : '') || fromRequest;
+export function getGoogleRedirectUri(_requestOrigin?: string): string {
+  return GOOGLE_CALLBACK_URI;
 }
