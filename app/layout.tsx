@@ -16,7 +16,7 @@ export const viewport = {
   viewportFit: 'cover',
 };
 
-const baseUrl = 'https://nura-ai.vercel.app';
+const baseUrl = 'https://nurapersonal.com';
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),

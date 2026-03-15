@@ -1,8 +1,8 @@
 /**
- * Production base URL and Google OAuth callback – hardcoded to nura-ai.vercel.app.
+ * Production base URL and Google OAuth callback – https://nurapersonal.com
  */
-const PRODUCTION_BASE = 'https://nura-ai.vercel.app';
-const GOOGLE_CALLBACK_URI = 'https://nura-ai.vercel.app/api/auth/callback/google';
+const PRODUCTION_BASE = 'https://nurapersonal.com';
+const GOOGLE_CALLBACK_URI = 'https://nurapersonal.com/api/auth/callback/google';
 
 export function getGoogleRedirectUri(_requestOrigin?: string): string {
   return GOOGLE_CALLBACK_URI;

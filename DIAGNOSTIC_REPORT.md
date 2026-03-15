@@ -1,7 +1,7 @@
 # NURA App – Diagnostic Report (for Gemini)
 
 **Date:** 2026-03-14  
-**Symptom:** App loads in guest mode at localhost:3001 but AI chat does not respond; features feel "stuck."
+**Symptom:** App loads in guest mode at nurapersonal.com but AI chat does not respond; features feel "stuck."
 
 ---
 
@@ -67,6 +67,6 @@
 1. **Get a new OpenAI API key** from https://platform.openai.com/api-keys (create or rotate if the current one was exposed).
 2. **Update `.env`:** set `OPENAI_API_KEY=<new_key>` (no quotes, no spaces).
 3. **Restart the dev server:** e.g. `npm run dev -- -p 3001`.
-4. **Test chat again** at http://localhost:3001; if the key is valid, the AI should respond and the “stuck” behavior should stop.
+4. **Test chat again** at http://nurapersonal.com; if the key is valid, the AI should respond and the “stuck” behavior should stop.
 
 If you later want calendar/email tools to work without Supabase, the backend would need to be changed to use **Prisma + SQLite** (or another local store) for `oauth_accounts` and `meeting_threads` instead of Supabase.

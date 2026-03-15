@@ -66,7 +66,7 @@ import { sendGmailMessage } from './gmail';
 ```bash
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
-NEXT_PUBLIC_GOOGLE_REDIRECT_URI=https://nura-ai.vercel.app/api/auth/callback/google
+NEXT_PUBLIC_GOOGLE_REDIRECT_URI=https://nurapersonal.com/api/auth/callback/google
 ```
 
 ## 🔐 Security Implementation
