@@ -2,19 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getGoogleRedirectUri } from '@/lib/env';
 
+const RETURN_BASE = 'https://nurapersonal.com';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const state = searchParams.get('state');
 
   if (!code || !state) {
-    return NextResponse.redirect(new URL('/connections?error=oauth_failed', request.url));
+    return NextResponse.redirect(new URL('/connections?error=oauth_failed', RETURN_BASE));
   }
 
   const userId = state;
   const redirectUri = getGoogleRedirectUri(request.nextUrl.origin);
   if (!redirectUri) {
-    return NextResponse.redirect(new URL('/connections?error=oauth_config', request.url));
+    return NextResponse.redirect(new URL('/connections?error=oauth_config', RETURN_BASE));
   }
 
   try {
@@ -76,9 +78,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.redirect(new URL('/connections?success=google', request.url));
+    return NextResponse.redirect(new URL('/connections?success=google', RETURN_BASE));
   } catch (error) {
     console.error('OAuth callback error:', error);
-    return NextResponse.redirect(new URL('/connections?error=oauth_failed', request.url));
+    return NextResponse.redirect(new URL('/connections?error=oauth_failed', RETURN_BASE));
   }
 }
