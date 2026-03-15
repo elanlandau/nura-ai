@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Digital Salon – Matte Light & Neon Luxe */
+:root {
+  --bg: #FAF9F6;
+  --bg-card: #FFFFFF;
+  --sidebar-bg: rgba(250, 249, 246, 0.75);
+  --coral: #FF6B6B;
+  --coral-soft: rgba(255, 107, 107, 0.15);
+  --coral-glow: 0 0 20px rgba(255, 107, 107, 0.25);
+  --coral-glow-strong: 0 0 28px rgba(255, 107, 107, 0.35);
+  --teal: #4ECDC4;
+  --teal-soft: rgba(78, 205, 196, 0.2);
+  --mint: #98FF98;
+  --mint-soft: rgba(152, 255, 152, 0.25);
+  --text-primary: #333333;
+  --text-muted: #6B6B6B;
+  --beige-bubble: #F3F1ED;
+  --shadow-soft: 0 4px 30px rgba(0, 0, 0, 0.03);
+  --shadow-card: 0 4px 30px rgba(0, 0, 0, 0.04);
+  --sidebar-width: 14rem;
+  --sidebar-collapsed: 3.5rem;
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --radius-salon: 24px;
+  --transition-lux: 0.3s ease-out;
+}
+
+@layer base {
+  * {
+    border-color: transparent;
+  }
+  body {
+    @apply antialiased;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Salon cards – no borders, soft depth */
+.glass {
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: var(--shadow-soft);
+}
+
+.glass-pod {
+  background: var(--bg-card);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-salon);
+}
+
+.glass-hero {
+  background: var(--bg-card);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  box-shadow: var(--shadow-card), var(--coral-glow);
+  border-radius: var(--radius-salon);
+}
+
+/* Floating input – coral neon capsule */
+.input-pod {
+  transition: all var(--transition-lux);
+  box-shadow: var(--shadow-soft);
+}
+.input-pod:focus-within {
+  box-shadow: var(--shadow-soft), var(--coral-glow);
+}
+
+/* Message entrance */
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-in {
+  animation: message-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-thinking-pulse {
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+
+.status-dot-mint {
+  background: var(--mint);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 12px 2px var(--mint-soft);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(51, 51, 51, 0.12);
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(51, 51, 51, 0.2);
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--mint);
+  }
+  50% {
+    opacity: 0.95;
+    box-shadow: 0 0 0 6px var(--mint-soft);
+  }
+}
+
+/* Global luxury transition */
+.salon-transition {
+  transition: all var(--transition-lux);
+}

@@ -1,0 +1,50 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model OAuthAccount {
+  id                   String   @id @default(cuid())
+  user_id              String
+  provider             String   // 'google' | 'microsoft'
+  provider_account_id  String
+  access_token         String?
+  refresh_token        String?
+  expires_at           Int?     // Unix seconds
+  token_type           String?
+  scope                String?
+  email                String?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  @@unique([user_id, provider])
+}
+
+model MeetingThread {
+  id                 String   @id @default(cuid())
+  user_id            String
+  recipient_email    String
+  recipient_name     String?
+  subject            String
+  proposed_slots     String   // JSON array of TimeSlot
+  selected_slot      String?  // JSON TimeSlot or null
+  status             String   // 'proposed' | 'confirmed' | 'cancelled'
+  email_thread_id    String?
+  calendar_event_id  String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  user_id   String
+  role      String   // 'user' | 'assistant' | 'system'
+  content   String
+  created_at DateTime @default(now())
+}
