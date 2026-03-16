@@ -55,17 +55,24 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
     },
   });
 
+  const NURA_INTRO =
+    'Hello, I am Nura. I am your Executive AI. I manage your schedule, track your tasks, and ensure your digital life is synchronized. How can I assist you tonight?';
+
   useEffect(() => {
     if (!userId || historyLoaded) return;
     let cancelled = false;
     fetch(`/api/chat/history?userId=${encodeURIComponent(userId)}`)
       .then((r) => r.ok ? r.json() : { messages: [] })
       .then((data) => {
-        if (cancelled || !Array.isArray(data.messages) || data.messages.length === 0) {
+        if (cancelled) {
           setHistoryLoaded(true);
           return;
         }
-        setMessages(data.messages.map((m: { id: string; role: string; content: string }) => ({ id: m.id, role: m.role, content: m.content })));
+        if (!Array.isArray(data.messages) || data.messages.length === 0) {
+          setMessages([{ id: 'nura-intro', role: 'assistant', content: NURA_INTRO }]);
+        } else {
+          setMessages(data.messages.map((m: { id: string; role: string; content: string }) => ({ id: m.id, role: m.role, content: m.content })));
+        }
         setHistoryLoaded(true);
       })
       .catch(() => setHistoryLoaded(true));
@@ -78,6 +85,19 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
     if (last.role !== 'assistant' || !last.toolInvocations?.length) return null;
     const inProgress = last.toolInvocations.find((t: { state: string }) => t.state !== 'result');
     return inProgress?.toolName ?? null;
+  })();
+
+  const latestToolError = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role !== 'assistant' || !m.toolInvocations?.length) continue;
+      for (const t of m.toolInvocations as { state?: string; result?: unknown }[]) {
+        if (t.state === 'result' && t.result != null && typeof t.result === 'object' && 'error' in t.result && typeof (t.result as { error: unknown }).error === 'string') {
+          return (t.result as { error: string }).error;
+        }
+      }
+    }
+    return null;
   })();
 
   useEffect(() => {
@@ -215,9 +235,9 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
           }}
           className="flex gap-4 items-end p-4 rounded-[28px] glass-pod input-pod max-w-2xl mx-auto"
         >
-          {submitError !== null ? (
+          {(submitError !== null || latestToolError !== null) ? (
             <p className="absolute bottom-full left-2 right-2 mb-1 text-xs text-[var(--coral)]" role="alert">
-              {submitError}
+              {latestToolError ?? submitError}
             </p>
           ) : null}
           <Textarea

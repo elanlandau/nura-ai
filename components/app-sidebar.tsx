@@ -10,7 +10,7 @@ import {
   MessageSquare,
   CheckSquare,
   Mail,
-  Settings,
+  History,
   LogOut,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
@@ -42,10 +42,10 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 const NAV_ITEMS = [
-  { href: '/', label: "צ'אט", icon: MessageSquare },
-  { href: '/tasks', label: 'משימות', icon: CheckSquare },
-  { href: '/inbox', label: 'מיילים', icon: Mail },
-  { href: '/settings', label: 'הגדרות', icon: Settings },
+  { href: '/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/tasks', label: 'Tasks', icon: CheckSquare },
+  { href: '/connections', label: 'Connections', icon: Mail },
+  { href: '/history', label: 'History', icon: History },
 ] as const;
 
 export function AppSidebar() {
@@ -63,7 +63,7 @@ export function AppSidebar() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setOpen(false);
-    router.replace('/sign-in');
+    router.replace('/');
   };
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export function AppSidebar() {
           )}
         >
           {!collapsed && (
-            <Link href="/" className="flex items-center gap-3 min-w-0" onClick={closeMobile}>
+            <Link href="/chat" className="flex items-center gap-3 min-w-0" onClick={closeMobile}>
               <div className="relative h-8 w-8 rounded-[12px] bg-[var(--coral)] flex items-center justify-center" style={{ boxShadow: 'var(--coral-glow)' }}>
                 <Bot className="h-4 w-4 text-white" />
                 <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[var(--mint)] border-2 border-[var(--sidebar-bg)] pulse-dot" aria-label="Pulse Active" />
@@ -137,7 +137,7 @@ export function AppSidebar() {
 
         <nav className="flex-1 p-4 space-y-1">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || (href === '/' && pathname === '/');
+            const active = pathname === href;
             return (
               <Link
                 key={href}
@@ -155,26 +155,6 @@ export function AppSidebar() {
               </Link>
             );
           })}
-          {!collapsed && (
-            <Link
-              href="/connections"
-              onClick={closeMobile}
-              className={cn(
-                'flex items-center gap-4 rounded-[var(--radius-salon)] px-4 py-3 text-sm font-medium transition-[var(--transition-lux)] mt-4 pt-4',
-                pathname === '/connections'
-                  ? 'bg-[var(--teal)]/20 text-[var(--teal)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--teal)] hover:bg-[var(--teal-soft)]'
-              )}
-            >
-              <span className="relative h-5 w-5 shrink-0 flex items-center justify-center">
-                <GoogleIcon className="h-5 w-5" />
-                {!connectionsLoading && googleConnected && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full status-dot-mint" aria-label="Connected" />
-                )}
-              </span>
-              <span className="truncate">חיבורים</span>
-            </Link>
-          )}
         </nav>
 
         {user && (

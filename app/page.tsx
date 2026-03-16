@@ -42,47 +42,46 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[var(--bg)] px-6">
-      <div className="w-full max-w-sm flex flex-col items-center">
-        <div className="mb-10 flex items-center justify-center">
-          <span className="text-5xl font-semibold tracking-tight text-[var(--text-primary)]">NURA</span>
-        </div>
-        <p className="text-sm text-[var(--text-muted)] mb-10 text-center">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#0a0a0a] px-6 py-12">
+      <div className="w-full max-w-sm flex flex-col items-center text-center">
+        <h1
+          className="text-7xl md:text-8xl font-semibold tracking-tight text-[#fafafa] mb-4"
+          style={{
+            textShadow: '0 0 40px rgba(59, 130, 246, 0.25), 0 0 80px rgba(59, 130, 246, 0.15)',
+          }}
+        >
+          NURA
+        </h1>
+        <p className="text-sm text-[#a0a0a0] mb-12">
           Your AI Executive Assistant
         </p>
 
         <form onSubmit={handleSubmit} className="w-full space-y-4">
-          <div>
-            <label htmlFor="email" className="sr-only">Email</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full h-12 px-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-[var(--transition-lux)]"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="sr-only">Password</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full h-12 px-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-[var(--transition-lux)]"
-            />
-          </div>
+          <input
+            id="email"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full h-12 px-4 rounded-xl bg-transparent border border-[rgba(255,255,255,0.12)] text-[#fafafa] placeholder:text-[#666] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-transparent transition-[var(--transition-lux)]"
+          />
+          <input
+            id="password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full h-12 px-4 rounded-xl bg-transparent border border-[rgba(255,255,255,0.12)] text-[#fafafa] placeholder:text-[#666] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-transparent transition-[var(--transition-lux)]"
+          />
           {error && (
-            <p className="text-sm text-[var(--error)] text-center" role="alert">{error}</p>
+            <p className="text-sm text-[#ef4444] text-center" role="alert">{error}</p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-12 rounded-xl font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] disabled:opacity-70 transition-[var(--transition-lux)]"
+            className="w-full h-12 rounded-xl font-medium text-white bg-[#3b82f6] hover:bg-[#2563eb] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-[#0a0a0a] disabled:opacity-70 transition-[var(--transition-lux)]"
           >
             {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : isSignUp ? 'Sign up' : 'Login'}
           </button>
@@ -91,7 +90,7 @@ export default function LandingPage() {
         <button
           type="button"
           onClick={() => { setIsSignUp((v) => !v); setError(null); }}
-          className="mt-6 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+          className="mt-8 text-sm text-[#a0a0a0] hover:text-[#3b82f6] transition-colors"
         >
           {isSignUp ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
         </button>
