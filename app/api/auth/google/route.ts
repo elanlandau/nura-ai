@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events',
     'https://www.googleapis.com/auth/drive.readonly',
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
@@ -30,10 +31,15 @@ export async function GET(request: NextRequest) {
   authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID!);
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('response_type', 'code');
-  authUrl.searchParams.set('scope', scopes.join(' '));
+  const scopeString = scopes.join(' ');
+  authUrl.searchParams.set('scope', scopeString);
   authUrl.searchParams.set('access_type', 'offline');
   authUrl.searchParams.set('prompt', 'consent select_account');
   authUrl.searchParams.set('state', userId);
 
-  return NextResponse.redirect(authUrl.toString());
+  const fullAuthUrl = authUrl.toString();
+  console.log('[Google OAuth] Full authorization URL:', fullAuthUrl);
+  console.log('[Google OAuth] Scopes sent:', scopeString);
+
+  return NextResponse.redirect(fullAuthUrl);
 }
