@@ -1,52 +1,100 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChatInterface } from '@/components/chat-interface';
-import { useSupabase } from '@/lib/supabase/provider';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase/client';
+import { Loader2 } from 'lucide-react';
 
-/** Main chat page – route: / (authenticated only) */
-export default function HomePage() {
-  const { user } = useSupabase();
-  const [digest, setDigest] = useState<string | null>(null);
-  const [digestLoading, setDigestLoading] = useState(true);
+export default function LandingPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    setDigestLoading(true);
-    fetch(`/api/insights/digest?userId=${encodeURIComponent(user.id)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) setDigest(data.summary ?? data.message ?? '');
-      })
-      .catch(() => { if (!cancelled) setDigest(''); })
-      .finally(() => { if (!cancelled) setDigestLoading(false); });
-    return () => { cancelled = true; };
-  }, [user?.id]);
-
-  if (!user) return null;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      if (isSignUp) {
+        const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
+        if (err) throw err;
+        setError(null);
+        setLoading(false);
+        setPassword('');
+        if (data.session) {
+          router.replace('/chat');
+          router.refresh();
+        }
+        return;
+      }
+      const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (err) throw err;
+      router.replace('/chat');
+      router.refresh();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : isSignUp ? 'Sign up failed' : 'Login failed';
+      setError(message);
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 bg-[var(--bg)]">
-      <div className="flex-1 min-h-0 flex flex-col px-8 pb-8 max-w-3xl w-full mx-auto">
-        {(digest !== null || digestLoading) && (
-          <div className="shrink-0 mb-6 rounded-[var(--radius-salon)] glass-hero p-8">
-            <div className="flex items-center gap-3 mb-3">
-              <Sparkles className="h-5 w-5 text-[var(--coral)]" />
-              <span className="text-sm font-medium text-[var(--text-primary)]">NURA Insights</span>
-            </div>
-            {digestLoading ? (
-              <p className="text-sm text-[var(--text-muted)] flex items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                סיכום מיילים...
-              </p>
-            ) : (
-              <p className="text-sm text-[var(--text-muted)]">{digest || 'חברו Gmail בחיבורים לסיכום.'}</p>
-            )}
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[var(--bg)] px-6">
+      <div className="w-full max-w-sm flex flex-col items-center">
+        <div className="mb-10 flex items-center justify-center">
+          <span className="text-5xl font-semibold tracking-tight text-[var(--text-primary)]">NURA</span>
+        </div>
+        <p className="text-sm text-[var(--text-muted)] mb-10 text-center">
+          Your AI Executive Assistant
+        </p>
+
+        <form onSubmit={handleSubmit} className="w-full space-y-4">
+          <div>
+            <label htmlFor="email" className="sr-only">Email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full h-12 px-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-[var(--transition-lux)]"
+            />
           </div>
-        )}
-        <ChatInterface userId={user.id} />
+          <div>
+            <label htmlFor="password" className="sr-only">Password</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full h-12 px-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-[var(--transition-lux)]"
+            />
+          </div>
+          {error && (
+            <p className="text-sm text-[var(--error)] text-center" role="alert">{error}</p>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 rounded-xl font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] disabled:opacity-70 transition-[var(--transition-lux)]"
+          >
+            {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : isSignUp ? 'Sign up' : 'Login'}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => { setIsSignUp((v) => !v); setError(null); }}
+          className="mt-6 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+        >
+          {isSignUp ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
+        </button>
       </div>
     </div>
   );
