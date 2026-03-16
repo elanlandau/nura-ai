@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { listGmailMessages } from '@/lib/integrations/gmail';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/server';
 import { classifyEmailWithLLM } from '@/lib/nura-pulse';
 import type { OAuthAccount } from '@/lib/types';
 import type { GmailMessageSummary } from '@/lib/integrations/gmail';
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
           const title = msg.subject || '(No subject)';
           const body = [msg.from, msg.snippet].filter(Boolean).join(' · ');
 
-          const { error } = await supabaseAdmin.from('notifications').insert({
+          const { error } = await getSupabaseAdmin().from('notifications').insert({
             user_id: userId,
             type,
             title,

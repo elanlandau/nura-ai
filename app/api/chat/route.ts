@@ -1,7 +1,7 @@
 import { StreamingTextResponse, OpenAIStream } from 'ai';
 import { Configuration, OpenAIApi } from 'openai-edge';
 import { prisma } from '@/lib/db';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/server';
 import { getCalendarAvailability, createCalendarEvent } from '@/lib/integrations/calendar';
 import { sendMeetingProposal } from '@/lib/integrations/email';
 import { listGmailMessages } from '@/lib/integrations/gmail';
@@ -311,7 +311,7 @@ async function getPriorContextMessages(userId: string): Promise<{ role: 'user' |
   console.log('[chat] history DB query', { userId, userIdType: typeof userId, userIdLength: userId.length, rowCount: rows.length, firstRowUserId: rows[0]?.user_id ?? null });
   if (rows.length === 0) {
     const distinctUserIds = await prisma.chatMessage.findMany({ select: { user_id: true }, take: 5 }).catch(() => []);
-    const ids = [...new Set(distinctUserIds.map((r) => r.user_id))];
+    const ids = Array.from(new Set(distinctUserIds.map((r) => r.user_id)));
     console.log('[chat] history empty for this userId; sample user_ids in ChatMessage table:', ids);
   }
   const ordered = rows.reverse();
@@ -324,7 +324,7 @@ async function getPriorContextMessages(userId: string): Promise<{ role: 'user' |
 /** Gets the authenticated user's display name from Supabase auth: display_name or full_name or name, fallback to email prefix. */
 async function getUserDisplayName(userId: string): Promise<string | null> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const { data: { user }, error } = await getSupabaseAdmin().auth.admin.getUserById(userId);
     if (error) {
       console.log('[chat] getUserDisplayName error for userId', userId.slice(0, 8) + '...', error.message);
       return null;
