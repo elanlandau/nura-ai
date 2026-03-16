@@ -24,7 +24,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files (never commit secrets)
+# local env files (never commit secrets - use .env.example as template only)
 .env
 .env*.local
 .env.development
