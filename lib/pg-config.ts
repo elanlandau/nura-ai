@@ -1,5 +1,8 @@
 /**
- * Shared pg Client config for Supabase Postgres: encoded password + ssl rejectUnauthorized false.
+ * Shared pg Client config for Supabase Postgres (Direct Connection port 5432).
+ * - Encodes password with encodeURIComponent (no special chars in URL).
+ * - ssl: { rejectUnauthorized: false } for self-signed/Supabase certs.
+ * - We do NOT append ?sslmode= or any query params to the URL; SSL is via client option only.
  * Use in app/api/debug-db, app/api/chat/save, app/api/auth/callback/google.
  */
 
