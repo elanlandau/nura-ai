@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import path from 'path';
 
@@ -16,8 +17,16 @@ function getDatabaseUrl(): string {
   return url;
 }
 
+function isPostgresUrl(url: string): boolean {
+  return url.startsWith('postgresql://') || url.startsWith('postgres://');
+}
+
 function createPrismaClient(): PrismaClient {
   const databaseUrl = getDatabaseUrl();
+  if (isPostgresUrl(databaseUrl)) {
+    const adapter = new PrismaPg({ connectionString: databaseUrl });
+    return new PrismaClient({ adapter });
+  }
   const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
   return new PrismaClient({ adapter });
 }
