@@ -36,7 +36,8 @@ export default function SignInPage() {
     setLoading(true);
     setError(null);
     try {
-      const redirectTo = 'https://nurapersonal.com/';
+      // Supabase sends the user here after Google sign-in (Google → Supabase callback → this URL).
+      const redirectTo = 'https://nurapersonal.com';
       console.log('[SignIn] Calling supabase.auth.signInWithOAuth, redirectTo:', redirectTo);
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',

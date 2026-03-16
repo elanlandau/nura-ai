@@ -1,6 +1,13 @@
 /**
- * Google OAuth callback for the Connections flow (Connect Gmail/Calendar).
- * Saves access_token and refresh_token to OAuthAccount via direct pg (no Prisma).
+ * Google OAuth callback for the Connections flow (Connect Gmail/Calendar) only.
+ *
+ * NOT used for the sign-in page: "Sign in with Google" uses Supabase Auth. In that flow,
+ * Google redirects to Supabase (https://...supabase.co/auth/v1/callback), then Supabase
+ * redirects to redirectTo (https://nurapersonal.com). The session is established by
+ * Supabase when the user lands on nurapersonal.com.
+ *
+ * This route runs when a signed-in user clicks "Connect" for Google on /connections.
+ * We exchange the code for tokens and save to OAuthAccount via pg (DATABASE_URL).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
