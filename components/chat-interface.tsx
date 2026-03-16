@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Wrench } from 'lucide-react';
+import { Send, Bot, User, Loader2, Wrench, Trash2 } from 'lucide-react';
 import { useChat } from 'ai/react';
 import { cn } from '@/lib/utils';
 
@@ -88,15 +88,31 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-[var(--bg)]">
-      <div className="shrink-0 flex items-center gap-4 px-6 py-6 bg-[var(--sidebar-bg)] backdrop-blur-xl transition-[var(--transition-lux)]" style={{ boxShadow: 'var(--shadow-soft)' }}>
-        <div className="h-10 w-10 rounded-2xl bg-[var(--coral)] flex items-center justify-center" style={{ boxShadow: 'var(--coral-glow)' }}>
-          <Bot className="h-5 w-5 text-white" />
+      <header className="shrink-0 flex items-center justify-between gap-4 px-6 py-6 bg-[var(--sidebar-bg)] backdrop-blur-xl overflow-visible min-h-[72px]" style={{ boxShadow: 'var(--shadow-soft)' }}>
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="h-10 w-10 rounded-2xl bg-[var(--coral)] flex items-center justify-center flex-shrink-0" style={{ boxShadow: 'var(--coral-glow)' }}>
+            <Bot className="h-5 w-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-semibold text-[var(--text-primary)] text-lg tracking-tight">NURA</h1>
+            <p className="text-xs text-[var(--text-muted)]">Your intelligent scheduling assistant</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-semibold text-[var(--text-primary)] text-lg tracking-tight">NURA</h1>
-          <p className="text-xs text-[var(--text-muted)]">Your intelligent scheduling assistant</p>
-        </div>
-      </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setMessages([]);
+            setSubmitError(null);
+          }}
+          className="shrink-0 relative z-10 flex items-center gap-2 h-9 px-3 rounded-lg border-[var(--text-muted)]/30 text-[var(--text-primary)] hover:bg-[var(--bg)]/80 hover:border-[var(--text-muted)]/50 transition-[var(--transition-lux)]"
+          aria-label="New chat (clear session)"
+          title="New chat"
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="text-sm font-medium">New Chat</span>
+        </Button>
+      </header>
 
       <div
         ref={scrollRef}
