@@ -1,17 +1,17 @@
 import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
 /**
- * Standard PrismaClient using DATABASE_URL from the environment (no driver adapters).
- * Schema defines url = env("DATABASE_URL"); set it in Vercel and locally for Supabase Postgres.
+ * Single PrismaClient instance. Cached on globalThis so serverless (e.g. Vercel)
+ * reuses one client per process and avoids PrismaClientInitializationError.
+ * Uses DATABASE_URL from env (schema: url = env("DATABASE_URL")).
  */
-function createPrismaClient(): PrismaClient {
-  return new PrismaClient();
+function getPrisma(): PrismaClient {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+  const client = new PrismaClient();
+  globalForPrisma.prisma = client;
+  return client;
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+export const prisma = getPrisma();
