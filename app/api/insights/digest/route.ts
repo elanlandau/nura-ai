@@ -27,15 +27,29 @@ async function getOAuthAccount(userId: string, provider: string): Promise<OAuthA
   };
 }
 
+// Uses Prisma (oAuthAccount), Gmail API, and OpenAI. No Supabase. 500s: check logs for [insights/digest] Prisma/DB | Gmail | OpenAI | Error (full handler).
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
+    const userId = request.nextUrl.searchParams.get('userId')?.trim() ?? '';
     if (!userId) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
 
-    const account = await getOAuthAccount(userId, 'google');
+    let account: OAuthAccount | null = null;
+    try {
+      account = await getOAuthAccount(userId, 'google');
+    } catch (dbErr) {
+      const err = dbErr as Error;
+      console.error('[insights/digest] Prisma/DB (getOAuthAccount)', {
+        message: err?.message,
+        name: err?.name,
+        stack: err?.stack,
+        userId: userId.slice(0, 8) + '...',
+      });
+      throw dbErr;
+    }
     if (!account) {
+      console.error('[insights/digest] No Google OAuth account for userId:', userId.slice(0, 8) + '...');
       return NextResponse.json({ summary: null, message: 'Connect Gmail in Connections to see insights.' });
     }
 
@@ -48,7 +62,8 @@ export async function GET(request: NextRequest) {
         snippet: (m.snippet || '').slice(0, 150),
       }));
     } catch (err) {
-      console.error('[insights/digest] Gmail', err);
+      const e = err as Error;
+      console.error('[insights/digest] Gmail (listGmailMessages)', e?.message ?? e, e?.stack);
       return NextResponse.json({ summary: null, message: 'Could not fetch emails.' });
     }
 
@@ -89,11 +104,18 @@ export async function GET(request: NextRequest) {
       const summary = data.choices?.[0]?.message?.content?.trim() || null;
       return NextResponse.json({ summary });
     } catch (err) {
-      console.error('[insights/digest] OpenAI', err);
+      const e = err as Error;
+      console.error('[insights/digest] OpenAI', e?.message ?? e, e?.stack);
       return NextResponse.json({ summary: null, message: 'Summary failed.' });
     }
   } catch (err) {
-    console.error('[insights/digest] Error:', err);
+    const e = err as Error;
+    console.error('[insights/digest] Error (full handler)', {
+      message: e?.message,
+      name: e?.name,
+      stack: e?.stack,
+      err,
+    });
     return NextResponse.json(
       { summary: null, message: 'Service temporarily unavailable.' },
       { status: 500 }
