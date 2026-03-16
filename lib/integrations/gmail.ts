@@ -224,3 +224,26 @@ export async function listGmailMessages(
   }
   return results;
 }
+
+/** Fetch a single message by id (for deep link summary). */
+export async function getGmailMessage(
+  account: OAuthAccount,
+  messageId: string
+): Promise<{ id: string; subject: string; from: string; snippet: string; date: string } | null> {
+  const accessToken = await ensureValidToken(account);
+  const res = await fetch(
+    `https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return null;
+  const msg = await res.json();
+  const headers = (msg.payload?.headers || []) as { name: string; value: string }[];
+  const get = (name: string) => headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? '';
+  return {
+    id: msg.id,
+    subject: get('Subject'),
+    from: get('From'),
+    snippet: msg.snippet || '',
+    date: get('Date'),
+  };
+}

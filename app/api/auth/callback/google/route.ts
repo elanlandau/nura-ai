@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
       await client.connect();
       const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 11)}`;
       const now = new Date();
+      // Full overwrite on conflict: all token fields replaced so new scopes (e.g. gmail.send) take effect
       await client.query(
         `INSERT INTO "OAuthAccount" (
           "id", "user_id", "provider", "provider_account_id",

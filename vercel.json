@@ -3,6 +3,18 @@
     {
       "path": "/api/cron/scan-workspace",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/gmail-alerts",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/calendar-alerts",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/task-alerts",
+      "schedule": "* * * * *"
     }
   ]
 }

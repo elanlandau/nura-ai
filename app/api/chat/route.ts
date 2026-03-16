@@ -355,12 +355,19 @@ export async function POST(req: Request) {
     }
 
     const userId = body.userId ?? null;
-    let threadId = body.threadId ?? null;
+    let threadId = (body.threadId != null && typeof body.threadId === 'string') ? body.threadId.trim() : '';
     if (!userId || typeof userId !== 'string' || userId === 'guest-user-bypass' || userId.trim() === '') {
       return new Response('Unauthorized', { status: 401 });
     }
-    if (!threadId || typeof threadId !== 'string' || threadId.trim() === '') {
-      return Response.json({ error: 'threadId required' }, { status: 400 });
+
+    // If no threadId, create a new thread so first message always works (e.g. after 500 on threads).
+    let createdThreadId: string | null = null;
+    if (!threadId) {
+      const thread = await prisma.chatThread.create({
+        data: { user_id: userId },
+      });
+      threadId = thread.id;
+      createdThreadId = thread.id;
     }
 
     const rawMessages = Array.isArray(body.messages) ? body.messages : [];
@@ -480,7 +487,9 @@ CONTEXT-AWARE EMAILS (propose_meeting_slots): Use the language of the current co
       },
     });
 
-    return new StreamingTextResponse(stream);
+    const headers = new Headers();
+    if (createdThreadId) headers.set('X-Thread-Id', createdThreadId);
+    return new StreamingTextResponse(stream, { headers });
   } catch (error: unknown) {
     console.error('[chat] POST error:', error);
     console.error('[chat] message:', error instanceof Error ? error.message : String(error));

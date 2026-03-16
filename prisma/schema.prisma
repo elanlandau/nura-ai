@@ -60,3 +60,36 @@ model ChatMessage {
   created_at DateTime @default(now())
   thread    ChatThread? @relation(fields: [thread_id], references: [id], onDelete: Cascade)
 }
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  user_id   String
+  endpoint  String   @unique
+  p256dh    String   // public key for encryption
+  auth      String   // auth secret
+  created_at DateTime @default(now())
+
+  @@map("push_subscription")
+}
+
+model Task {
+  id             String    @id @default(cuid())
+  user_id        String
+  title          String
+  due_at         DateTime  // Due date/time for Task Pop
+  alert_sent_at  DateTime?  // Set when we sent "due now" push so we don't repeat
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  @@map("task")
+}
+
+model EmailPushSent {
+  id         String   @id @default(cuid())
+  user_id    String
+  message_id String   // Gmail message id
+  created_at DateTime @default(now())
+
+  @@unique([user_id, message_id])
+  @@map("email_push_sent")
+}

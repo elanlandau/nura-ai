@@ -30,24 +30,25 @@ export async function refreshGoogleAccessToken(refreshToken: string): Promise<Go
   return response.json();
 }
 
-async function ensureValidToken(account: OAuthAccount): Promise<string> {
-  if (!account.access_token || !account.expires_at) {
-    throw new Error('No access token found');
+/**
+ * Returns a valid access token. When forceRefresh is true, always refreshes using refresh_token
+ * so we never use a cached/expired token (e.g. for calendar write).
+ */
+async function ensureValidToken(account: OAuthAccount, forceRefresh = false): Promise<string> {
+  if (!account.refresh_token) {
+    if (!account.access_token) throw new Error('No access token found');
+    if (forceRefresh) throw new Error('No refresh token available');
+    return account.access_token;
   }
 
-  const now = Date.now();
-  const expiresAt = account.expires_at * 1000;
-
-  if (now >= expiresAt - 60000) {
-    if (!account.refresh_token) {
-      throw new Error('No refresh token available');
-    }
-
-    const tokenData = await refreshGoogleAccessToken(account.refresh_token);
-    return tokenData.access_token;
+  if (!forceRefresh && account.access_token && account.expires_at) {
+    const now = Date.now();
+    const expiresAt = account.expires_at * 1000;
+    if (now < expiresAt - 60000) return account.access_token;
   }
 
-  return account.access_token;
+  const tokenData = await refreshGoogleAccessToken(account.refresh_token);
+  return tokenData.access_token;
 }
 
 export async function getGoogleCalendarAvailability(
@@ -140,18 +141,25 @@ export async function createGoogleCalendarEvent(
     attendees: string[];
   }
 ): Promise<string> {
-  const accessToken = await ensureValidToken(account);
+  const accessToken = await ensureValidToken(account, true);
+
+  const tz = (event.start.timezone && String(event.start.timezone).trim()) || 'UTC';
+  const startDateTime = typeof event.start.start === 'string' ? event.start.start.trim() : '';
+  const endDateTime = typeof event.start.end === 'string' ? event.start.end.trim() : '';
+  if (!startDateTime || !endDateTime) {
+    throw new Error('Calendar event start and end times are required in ISO 8601 format (e.g. 2025-02-20T10:00:00Z or 2025-02-20T12:00:00+02:00).');
+  }
 
   const eventData = {
     summary: event.summary,
     description: event.description,
     start: {
-      dateTime: event.start.start,
-      timeZone: event.start.timezone,
+      dateTime: startDateTime,
+      timeZone: tz,
     },
     end: {
-      dateTime: event.start.end,
-      timeZone: event.start.timezone,
+      dateTime: endDateTime,
+      timeZone: tz,
     },
     attendees: event.attendees.map((email) => ({ email })),
     reminders: {
@@ -163,6 +171,9 @@ export async function createGoogleCalendarEvent(
     },
   };
 
+  const bodyJson = JSON.stringify(eventData);
+  console.log('[Google Calendar] POST body to https://www.googleapis.com/calendar/v3/calendars/primary/events:', bodyJson);
+
   const response = await fetch(
     'https://www.googleapis.com/calendar/v3/calendars/primary/events',
     {
@@ -171,14 +182,72 @@ export async function createGoogleCalendarEvent(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(eventData),
+      body: bodyJson,
     }
   );
 
+  const responseBody = await response.text();
+
   if (!response.ok) {
-    throw new Error(`Failed to create calendar event: ${response.statusText}`);
+    console.error('[Google Calendar] Error response status:', response.status, response.statusText);
+    console.error('[Google Calendar] Full error body:', responseBody);
+    if (response.status === 403 || response.status === 401) {
+      throw new Error(
+        'CALENDAR_PERMISSION_DENIED: Google Calendar does not have permission to create events. ' +
+          'Please go to Connections, disconnect Google, and connect again—then allow "View and manage your calendar events" when prompted.'
+      );
+    }
+    throw new Error(`Failed to create calendar event: ${response.statusText} — ${responseBody.slice(0, 500)}`);
   }
 
-  const data = await response.json();
+  const data = JSON.parse(responseBody);
   return data.id;
+}
+
+export interface CalendarEventUpcoming {
+  id: string;
+  summary: string;
+  start: Date;
+}
+
+/**
+ * List calendar events in a time window (for proactive "5 min before" alerts).
+ */
+export async function listGoogleCalendarEvents(
+  account: OAuthAccount,
+  timeMin: Date,
+  timeMax: Date
+): Promise<CalendarEventUpcoming[]> {
+  const accessToken = await ensureValidToken(account);
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+      new URLSearchParams({
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        singleEvents: 'true',
+        orderBy: 'startTime',
+      }),
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to fetch calendar events: ${response.statusText}`);
+  }
+  const data = await response.json();
+  const items = (data.items || []) as Array<{
+    id?: string;
+    summary?: string;
+    start?: { dateTime?: string; date?: string };
+  }>;
+  return items
+    .filter((e) => e.id && (e.start?.dateTime || e.start?.date))
+    .map((e) => ({
+      id: e.id!,
+      summary: (e.summary || 'Event').trim(),
+      start: new Date(e.start!.dateTime || e.start!.date!),
+    }));
 }

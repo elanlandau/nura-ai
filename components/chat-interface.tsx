@@ -36,6 +36,7 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const threadIdForSaveRef = useRef<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(() => initialThreadId ?? searchParams.get('thread') ?? null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -44,6 +45,16 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
     api: '/api/chat',
     body: { userId, threadId: threadId ?? '' },
     initialMessages: [],
+    onResponse: (res) => {
+      const newThreadId = res.headers.get('X-Thread-Id');
+      if (newThreadId) {
+        threadIdForSaveRef.current = newThreadId;
+        if (!threadId) {
+          setThreadId(newThreadId);
+          router.replace(`/chat?thread=${encodeURIComponent(newThreadId)}`, { scroll: false });
+        }
+      }
+    },
     onError: (err: unknown) => {
       console.error('[NURA chat]', err);
       const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Request failed. Check the console (F12) for details.';
@@ -51,13 +62,14 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
     },
     onFinish: (message) => {
       setSubmitError(null);
-      if (message.role === 'assistant' && threadId) {
+      const tid = threadId ?? threadIdForSaveRef.current;
+      if (message.role === 'assistant' && tid) {
         const content = getMessageContent(message);
         if (content.trim()) {
           fetch('/api/chat/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, threadId, role: 'assistant', content }),
+            body: JSON.stringify({ userId, threadId: tid, role: 'assistant', content }),
           }).catch((e: unknown) => console.error('[NURA chat] save', e));
         }
       }
@@ -300,7 +312,7 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
           />
           <Button
             type="submit"
-            disabled={isLoading || !threadId || !input.trim()}
+            disabled={isLoading || !input.trim()}
             className="shrink-0 h-12 w-12 rounded-2xl bg-[var(--coral)] hover:bg-[var(--coral)]/90 text-white border-0 transition-[var(--transition-lux)]"
             style={{ boxShadow: 'var(--coral-glow)' }}
             aria-label="Send message"

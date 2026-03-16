@@ -2,9 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Configuration, OpenAIApi } from 'openai-edge';
 import { prisma } from '@/lib/db';
 import { listGmailMessages } from '@/lib/integrations/gmail';
+import { refreshGoogleAccessToken } from '@/lib/integrations/google-calendar';
 import type { OAuthAccount } from '@/lib/types';
 
 export const maxDuration = 30;
+
+/** Refresh Google token if expired and persist to OAuthAccount so Gmail API calls succeed. */
+async function ensureValidTokenAndPersist(userId: string, account: OAuthAccount): Promise<OAuthAccount> {
+  if (!account.access_token || account.expires_at == null) {
+    throw new Error('No access token found');
+  }
+  const nowSec = Math.floor(Date.now() / 1000);
+  const bufferSec = 60;
+  if (nowSec < account.expires_at - bufferSec) {
+    return account;
+  }
+  if (!account.refresh_token) {
+    throw new Error('Token expired and no refresh token');
+  }
+  const tokenData = await refreshGoogleAccessToken(account.refresh_token);
+  const newExpiresAt = Math.floor(Date.now() / 1000) + tokenData.expires_in;
+  await prisma.oAuthAccount.update({
+    where: { user_id_provider: { user_id: userId, provider: 'google' } },
+    data: { access_token: tokenData.access_token, expires_at: newExpiresAt },
+  });
+  return {
+    ...account,
+    access_token: tokenData.access_token,
+    expires_at: newExpiresAt,
+  };
+}
 
 async function getOAuthAccount(userId: string, provider: string): Promise<OAuthAccount | null> {
   const row = await prisma.oAuthAccount.findUnique({
@@ -55,7 +82,8 @@ export async function GET(request: NextRequest) {
 
     let messages: { subject: string; from: string; snippet: string }[] = [];
     try {
-      const list = await listGmailMessages(account, { maxResults: 20 });
+      const accountWithValidToken = await ensureValidTokenAndPersist(userId, account);
+      const list = await listGmailMessages(accountWithValidToken, { maxResults: 20 });
       messages = list.map((m) => ({
         subject: m.subject || '(No subject)',
         from: m.from || '',
@@ -63,8 +91,8 @@ export async function GET(request: NextRequest) {
       }));
     } catch (err) {
       const e = err as Error;
-      console.error('[insights/digest] Gmail (listGmailMessages)', e?.message ?? e, e?.stack);
-      return NextResponse.json({ summary: null, message: 'Could not fetch emails.' });
+      console.error('[insights/digest] Gmail (token refresh or listGmailMessages)', e?.message ?? e, e?.stack);
+      return NextResponse.json({ summary: null, message: 'Could not fetch emails. Reconnect Gmail in Connections.' });
     }
 
     if (messages.length === 0) {
