@@ -1,38 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Client } from 'pg';
+import { getPgClientConfig } from '@/lib/pg-config';
 
-/**
- * Encode password in connection string to avoid hidden/special characters breaking the connection.
- * Format: postgresql://user:password@host:port/db?query
- */
-function connectionStringWithEncodedPassword(raw: string): string {
-  const protocolEnd = raw.indexOf('://');
-  if (protocolEnd === -1) return raw;
-  const afterProtocol = raw.slice(protocolEnd + 3);
-  const atIndex = afterProtocol.lastIndexOf('@');
-  if (atIndex === -1) return raw;
-  const auth = afterProtocol.slice(0, atIndex);
-  const rest = afterProtocol.slice(atIndex);
-  const colonIdx = auth.indexOf(':');
-  if (colonIdx === -1) return raw;
-  const user = auth.slice(0, colonIdx);
-  const password = auth.slice(colonIdx + 1);
-  const encodedPassword = encodeURIComponent(password);
-  return raw.slice(0, protocolEnd + 3) + user + ':' + encodedPassword + rest;
-}
-
-/**
- * Ensure sslmode=require is in the connection string (for Supabase).
- */
-function ensureSslMode(connectionString: string): string {
-  if (connectionString.includes('sslmode=')) return connectionString;
-  const sep = connectionString.includes('?') ? '&' : '?';
-  return connectionString + sep + 'sslmode=require';
-}
-
-/**
- * Swap port 6543 (Transaction pooler) to 5432 (Session) to bypass tenant errors.
- */
 function withPort5432(connectionString: string): string {
   return connectionString.replace(/:6543\//, ':5432/').replace(/:6543\?/, ':5432?');
 }
@@ -40,20 +9,12 @@ function withPort5432(connectionString: string): string {
 export async function GET() {
   console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
-  let connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const clientConfig = getPgClientConfig();
+  if (!clientConfig) {
     const msg = 'DATABASE_URL is not set';
     console.error('[debug-db]', msg);
     return NextResponse.json({ error: msg, connected: false }, { status: 503 });
   }
-
-  connectionString = connectionStringWithEncodedPassword(connectionString);
-  connectionString = ensureSslMode(connectionString);
-
-  const clientConfig = {
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-  };
 
   const client = new Client(clientConfig);
   try {
@@ -65,8 +26,8 @@ export async function GET() {
     const stack = err instanceof Error ? err.stack : undefined;
     console.error('[debug-db]', message, stack);
 
-    if (connectionString.includes(':6543') && (message.includes('tenant') || message.includes('Tenant') || message.includes('not found'))) {
-      const fallbackConnectionString = withPort5432(connectionString);
+    if (clientConfig.connectionString.includes(':6543') && (message.includes('tenant') || message.includes('Tenant') || message.includes('not found'))) {
+      const fallbackConnectionString = withPort5432(clientConfig.connectionString);
       console.log('[debug-db] Retrying with port 5432 (Session) instead of 6543 (Transaction)');
       const fallbackClient = new Client({
         connectionString: fallbackConnectionString,

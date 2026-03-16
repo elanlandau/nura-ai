@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
 import { getGoogleRedirectUri } from '@/lib/env';
+import { getPgClientConfig } from '@/lib/pg-config';
 
 const RETURN_BASE = 'https://nurapersonal.com';
 
@@ -63,13 +64,13 @@ export async function GET(request: NextRequest) {
     console.log('Google Profile:', userInfo);
 
     const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
+    const clientConfig = getPgClientConfig();
+    if (!clientConfig) {
       console.error('[OAuth callback] DATABASE_URL not set');
       return NextResponse.redirect(new URL('/connections?error=oauth_failed', RETURN_BASE));
     }
 
-    const client = new Client({ connectionString });
+    const client = new Client(clientConfig);
     try {
       await client.connect();
       const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 11)}`;

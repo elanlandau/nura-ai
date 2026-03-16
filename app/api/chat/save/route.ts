@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
+import { getPgClientConfig } from '@/lib/pg-config';
 
 export async function POST(request: NextRequest) {
   let body: { userId?: string; role?: string; content?: unknown };
@@ -19,13 +20,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'role must be user or assistant' }, { status: 400 });
   }
 
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const clientConfig = getPgClientConfig();
+  if (!clientConfig) {
     console.error('[chat/save] DATABASE_URL not set');
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
   }
 
-  const client = new Client({ connectionString });
+  const client = new Client(clientConfig);
   try {
     await client.connect();
     const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 11)}`;
