@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ChatInterface } from '@/components/chat-interface';
 import { useSupabase } from '@/lib/supabase/provider';
 import { Sparkles, Loader2 } from 'lucide-react';
 
 export default function ChatPage() {
+  const searchParams = useSearchParams();
   const { user } = useSupabase();
   const [digest, setDigest] = useState<string | null>(null);
   const [digestLoading, setDigestLoading] = useState(true);
@@ -45,7 +47,7 @@ export default function ChatPage() {
             )}
           </div>
         )}
-        <ChatInterface userId={user.id} />
+        <ChatInterface userId={user.id} initialThreadId={searchParams.get('thread')} />
       </div>
     </div>
   );

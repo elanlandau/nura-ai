@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Wrench, Trash2 } from 'lucide-react';
@@ -9,6 +10,8 @@ import { cn } from '@/lib/utils';
 
 interface ChatInterfaceProps {
   userId: string;
+  /** When switching from History sidebar, pass the thread to load. */
+  initialThreadId?: string | null;
 }
 
 /** Safely get displayable string from message content (SDK may send string or other). */
@@ -26,14 +29,20 @@ const TOOL_LABELS: Record<string, string> = {
   confirm_meeting: 'Google Calendar (יוצר אירוע)',
 };
 
-export function ChatInterface({ userId }: ChatInterfaceProps) {
+const NURA_INTRO =
+  'Hello, I am Nura. I am your Executive AI. I manage your schedule, track your tasks, and ensure your digital life is synchronized. How can I assist you tonight?';
+
+export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [threadId, setThreadId] = useState<string | null>(() => initialThreadId ?? searchParams.get('thread') ?? null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: '/api/chat',
-    body: { userId },
+    body: { userId, threadId: threadId ?? '' },
     initialMessages: [],
     onError: (err: unknown) => {
       console.error('[NURA chat]', err);
@@ -42,26 +51,45 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
     },
     onFinish: (message) => {
       setSubmitError(null);
-      if (message.role === 'assistant') {
+      if (message.role === 'assistant' && threadId) {
         const content = getMessageContent(message);
         if (content.trim()) {
           fetch('/api/chat/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, role: 'assistant', content }),
+            body: JSON.stringify({ userId, threadId, role: 'assistant', content }),
           }).catch((e: unknown) => console.error('[NURA chat] save', e));
         }
       }
     },
   });
 
-  const NURA_INTRO =
-    'Hello, I am Nura. I am your Executive AI. I manage your schedule, track your tasks, and ensure your digital life is synchronized. How can I assist you tonight?';
+  useEffect(() => {
+    const fromUrl = searchParams.get('thread');
+    if (fromUrl && fromUrl !== threadId) setThreadId(fromUrl);
+  }, [searchParams]);
 
   useEffect(() => {
-    if (!userId || historyLoaded) return;
+    if (!userId) return;
+    if (threadId === null) {
+      fetch('/api/chat/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.threadId) {
+            setThreadId(data.threadId);
+            router.replace(`/chat?thread=${encodeURIComponent(data.threadId)}`, { scroll: false });
+          }
+        })
+        .catch(() => setHistoryLoaded(true));
+      return;
+    }
     let cancelled = false;
-    fetch(`/api/chat/history?userId=${encodeURIComponent(userId)}`)
+    setHistoryLoaded(false);
+    fetch(`/api/chat/history?userId=${encodeURIComponent(userId)}&threadId=${encodeURIComponent(threadId)}`)
       .then((r) => r.ok ? r.json() : { messages: [] })
       .then((data) => {
         if (cancelled) {
@@ -77,7 +105,26 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
       })
       .catch(() => setHistoryLoaded(true));
     return () => { cancelled = true; };
-  }, [userId, historyLoaded, setMessages]);
+  }, [userId, threadId, setMessages, router]);
+
+  const handleNewChat = () => {
+    fetch('/api/chat/threads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.threadId) {
+          setThreadId(data.threadId);
+          setMessages([]);
+          setSubmitError(null);
+          setHistoryLoaded(false);
+          router.replace(`/chat?thread=${encodeURIComponent(data.threadId)}`, { scroll: false });
+        }
+      })
+      .catch(console.error);
+  };
 
   const currentTool = (() => {
     if (!isLoading || messages.length === 0) return null;
@@ -121,10 +168,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => {
-            setMessages([]);
-            setSubmitError(null);
-          }}
+          onClick={handleNewChat}
           className="shrink-0 relative z-10 flex items-center gap-2 h-9 px-3 rounded-lg border-[var(--text-muted)]/30 text-[var(--text-primary)] hover:bg-[var(--bg)]/80 hover:border-[var(--text-muted)]/50 transition-[var(--transition-lux)]"
           aria-label="New chat (clear session)"
           title="New chat"
@@ -256,7 +300,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps) {
           />
           <Button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !threadId || !input.trim()}
             className="shrink-0 h-12 w-12 rounded-2xl bg-[var(--coral)] hover:bg-[var(--coral)]/90 text-white border-0 transition-[var(--transition-lux)]"
             style={{ boxShadow: 'var(--coral-glow)' }}
             aria-label="Send message"

@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client } from 'pg';
-import { getPgClientConfig } from '@/lib/pg-config';
+import { prisma } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
-  let body: { userId?: string; role?: string; content?: unknown };
+  let body: { userId?: string; threadId?: string; role?: string; content?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  const { userId, role, content } = body;
-  if (!userId || !role || content === undefined) {
-    return NextResponse.json({ error: 'Missing userId, role, or content' }, { status: 400 });
+  const { userId, threadId, role, content } = body;
+  if (!userId || !threadId || !role || content === undefined) {
+    return NextResponse.json({ error: 'Missing userId, threadId, role, or content' }, { status: 400 });
   }
   if (userId === 'guest-user-bypass' || userId.trim() === '') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,23 +19,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'role must be user or assistant' }, { status: 400 });
   }
 
-  const clientConfig = getPgClientConfig();
-  if (!clientConfig) {
-    console.error('[chat/save] DATABASE_URL not set');
-    return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
-  }
-
-  const client = new Client(clientConfig);
   try {
-    await client.connect();
-    const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 11)}`;
-    const text = `INSERT INTO "ChatMessage" ("id", "user_id", "role", "content") VALUES ($1, $2, $3, $4)`;
-    await client.query(text, [id, userId, role, String(content).slice(0, 100_000)]);
+    await prisma.chatMessage.create({
+      data: {
+        thread_id: threadId,
+        user_id: userId,
+        role,
+        content: String(content).slice(0, 100_000),
+      },
+    });
+    await prisma.chatThread.updateMany({
+      where: { id: threadId, user_id: userId },
+      data: { updated_at: new Date() },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[chat/save]', err);
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
-  } finally {
-    await client.end().catch(() => {});
   }
 }

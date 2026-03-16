@@ -1,5 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Tables match Supabase: OAuthAccount, MeetingThread, ChatMessage (run prisma/supabase-init.sql if needed).
 
 generator client {
   provider = "prisma-client-js"
@@ -42,10 +43,20 @@ model MeetingThread {
   updated_at         DateTime @updatedAt
 }
 
+model ChatThread {
+  id        String   @id @default(cuid())
+  user_id   String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  messages  ChatMessage[]
+}
+
 model ChatMessage {
   id        String   @id @default(cuid())
+  thread_id String?  // null = legacy message (pre-threads)
   user_id   String
   role      String   // 'user' | 'assistant' | 'system'
   content   String
   created_at DateTime @default(now())
+  thread    ChatThread? @relation(fields: [thread_id], references: [id], onDelete: Cascade)
 }

@@ -239,29 +239,41 @@ async function handleFunctionCall(functionName: string, functionArgs: any, userI
         return { error: `No ${provider} account connected. Please connect your account in the Connections page.` };
       }
 
-      const eventId = await createCalendarEvent(account, {
-        summary,
-        description: description || '',
-        start: time_slot,
-        attendees,
-      });
-
-      if (thread_id) {
-        await prisma.meetingThread.updateMany({
-          where: { id: thread_id, user_id: userId },
-          data: {
-            status: 'confirmed',
-            selected_slot: JSON.stringify(time_slot),
-            calendar_event_id: eventId,
-          },
+      try {
+        const eventId = await createCalendarEvent(account, {
+          summary,
+          description: description || '',
+          start: time_slot,
+          attendees,
         });
-      }
 
-      return {
-        success: true,
-        event_id: eventId,
-        message: `Meeting confirmed and calendar event created`,
-      };
+        if (thread_id) {
+          await prisma.meetingThread.updateMany({
+            where: { id: thread_id, user_id: userId },
+            data: {
+              status: 'confirmed',
+              selected_slot: JSON.stringify(time_slot),
+              calendar_event_id: eventId,
+            },
+          });
+        }
+
+        return {
+          success: true,
+          event_id: eventId,
+          message: `Meeting confirmed and calendar event created`,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const isPermission = message.includes('CALENDAR_PERMISSION_DENIED') || message.includes('403') || message.includes('Forbidden');
+        if (isPermission) {
+          return {
+            error:
+              'Calendar write permission is missing. Go to **Connections**, disconnect Google, then connect again and allow "View and manage your calendar events".',
+          };
+        }
+        return { error: message };
+      }
     }
 
     case 'list_messages': {
@@ -301,19 +313,13 @@ function getContentString(msg: { content?: unknown }): string {
   return '';
 }
 
-/** Fetches the last N messages for the user from the DB (chronological order) for LLM context. */
-async function getPriorContextMessages(userId: string): Promise<{ role: 'user' | 'assistant' | 'system'; content: string }[]> {
+/** Fetches the last N messages for this thread from the DB (chronological order) for LLM context. */
+async function getPriorContextMessages(userId: string, threadId: string): Promise<{ role: 'user' | 'assistant' | 'system'; content: string }[]> {
   const rows = await prisma.chatMessage.findMany({
-    where: { user_id: userId },
+    where: { user_id: userId, thread_id: threadId },
     orderBy: { created_at: 'desc' },
     take: PRIOR_CONTEXT_MESSAGE_LIMIT,
   });
-  console.log('[chat] history DB query', { userId, userIdType: typeof userId, userIdLength: userId.length, rowCount: rows.length, firstRowUserId: rows[0]?.user_id ?? null });
-  if (rows.length === 0) {
-    const distinctUserIds = await prisma.chatMessage.findMany({ select: { user_id: true }, take: 5 }).catch(() => []);
-    const ids = Array.from(new Set(distinctUserIds.map((r) => r.user_id)));
-    console.log('[chat] history empty for this userId; sample user_ids in ChatMessage table:', ids);
-  }
   const ordered = rows.reverse();
   return ordered.map((r) => ({
     role: (r.role === 'user' || r.role === 'assistant' || r.role === 'system' ? r.role : 'user') as 'user' | 'assistant' | 'system',
@@ -341,7 +347,7 @@ async function getUserDisplayName(userId: string): Promise<string | null> {
 
 export async function POST(req: Request) {
   try {
-    let body: { messages?: unknown; userId?: string };
+    let body: { messages?: unknown; userId?: string; threadId?: string };
     try {
       body = await req.json();
     } catch {
@@ -349,10 +355,13 @@ export async function POST(req: Request) {
     }
 
     const userId = body.userId ?? null;
+    let threadId = body.threadId ?? null;
     if (!userId || typeof userId !== 'string' || userId === 'guest-user-bypass' || userId.trim() === '') {
       return new Response('Unauthorized', { status: 401 });
     }
-    console.log('[chat] userId from request (expect Supabase auth session user id):', userId);
+    if (!threadId || typeof threadId !== 'string' || threadId.trim() === '') {
+      return Response.json({ error: 'threadId required' }, { status: 400 });
+    }
 
     const rawMessages = Array.isArray(body.messages) ? body.messages : [];
     const messages = rawMessages
@@ -366,12 +375,13 @@ export async function POST(req: Request) {
         return { role, content: content || ' ' };
       });
 
-    // Fetch last N messages from DB for context (even if UI was cleared) so Nura remembers the user and prior discussion
-    const priorContext = await getPriorContextMessages(userId);
+    const thread = await prisma.chatThread.findUnique({ where: { id: threadId, user_id: userId } });
+    if (!thread) {
+      return Response.json({ error: 'Thread not found or access denied. Start a new chat.' }, { status: 404 });
+    }
 
-    // Fetch display name from Supabase auth on every request (display_name / full_name / name, fallback email prefix)
+    const priorContext = await getPriorContextMessages(userId, threadId);
     const userDisplayName = await getUserDisplayName(userId);
-    console.log('[chat] user display name from auth metadata:', userDisplayName ?? 'null');
 
     if (messages.length > 0) {
       const last = messages[messages.length - 1];
@@ -379,7 +389,7 @@ export async function POST(req: Request) {
         const content = getContentString(last as { content?: unknown });
         if (content && String(content).trim()) {
           await prisma.chatMessage.create({
-            data: { user_id: userId, role: 'user', content: String(content).slice(0, 100_000) },
+            data: { thread_id: threadId, user_id: userId, role: 'user', content: String(content).slice(0, 100_000) },
           }).catch((e: unknown) => console.error('[chat] save user message', e));
         }
       }
