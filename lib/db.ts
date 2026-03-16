@@ -1,34 +1,13 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import path from 'path';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-function getDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL || 'file:./dev.db';
-  if (url.startsWith('file:')) {
-    const relativePath = url.replace(/^file:\/\//, '').replace(/^file:/, '');
-    const absolutePath = path.isAbsolute(relativePath)
-      ? relativePath
-      : path.resolve(process.cwd(), relativePath);
-    return `file:${absolutePath}`;
-  }
-  return url;
-}
-
-function isPostgresUrl(url: string): boolean {
-  return url.startsWith('postgresql://') || url.startsWith('postgres://');
-}
-
+/**
+ * Standard PrismaClient using DATABASE_URL from the environment (no driver adapters).
+ * Schema defines url = env("DATABASE_URL"); set it in Vercel and locally for Supabase Postgres.
+ */
 function createPrismaClient(): PrismaClient {
-  const databaseUrl = getDatabaseUrl();
-  if (isPostgresUrl(databaseUrl)) {
-    const adapter = new PrismaPg({ connectionString: databaseUrl });
-    return new PrismaClient({ adapter });
-  }
-  const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
-  return new PrismaClient({ adapter });
+  return new PrismaClient();
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
