@@ -1,11 +1,14 @@
 import { StreamingTextResponse, OpenAIStream } from 'ai';
 import { Configuration, OpenAIApi } from 'openai-edge';
 import { prisma } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { getCalendarAvailability, createCalendarEvent } from '@/lib/integrations/calendar';
 import { sendMeetingProposal } from '@/lib/integrations/email';
 import { listGmailMessages } from '@/lib/integrations/gmail';
 import { addDays } from 'date-fns';
 import type { OAuthAccount } from '@/lib/types';
+
+const PRIOR_CONTEXT_MESSAGE_LIMIT = 10;
 
 export const maxDuration = 60;
 
@@ -298,6 +301,44 @@ function getContentString(msg: { content?: unknown }): string {
   return '';
 }
 
+/** Fetches the last N messages for the user from the DB (chronological order) for LLM context. */
+async function getPriorContextMessages(userId: string): Promise<{ role: 'user' | 'assistant' | 'system'; content: string }[]> {
+  const rows = await prisma.chatMessage.findMany({
+    where: { user_id: userId },
+    orderBy: { created_at: 'desc' },
+    take: PRIOR_CONTEXT_MESSAGE_LIMIT,
+  });
+  console.log('[chat] history DB query', { userId, userIdType: typeof userId, userIdLength: userId.length, rowCount: rows.length, firstRowUserId: rows[0]?.user_id ?? null });
+  if (rows.length === 0) {
+    const distinctUserIds = await prisma.chatMessage.findMany({ select: { user_id: true }, take: 5 }).catch(() => []);
+    const ids = [...new Set(distinctUserIds.map((r) => r.user_id))];
+    console.log('[chat] history empty for this userId; sample user_ids in ChatMessage table:', ids);
+  }
+  const ordered = rows.reverse();
+  return ordered.map((r) => ({
+    role: (r.role === 'user' || r.role === 'assistant' || r.role === 'system' ? r.role : 'user') as 'user' | 'assistant' | 'system',
+    content: r.content ?? ' ',
+  }));
+}
+
+/** Gets the authenticated user's display name from Supabase auth: display_name or full_name or name, fallback to email prefix. */
+async function getUserDisplayName(userId: string): Promise<string | null> {
+  try {
+    const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (error) {
+      console.log('[chat] getUserDisplayName error for userId', userId.slice(0, 8) + '...', error.message);
+      return null;
+    }
+    if (!user) return null;
+    const meta = user.user_metadata as { display_name?: string; full_name?: string; name?: string } | null;
+    const name = meta?.display_name ?? meta?.full_name ?? meta?.name ?? (user.email?.split('@')[0] ?? null);
+    return name ?? null;
+  } catch (e) {
+    console.log('[chat] getUserDisplayName exception', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     let body: { messages?: unknown; userId?: string };
@@ -308,9 +349,10 @@ export async function POST(req: Request) {
     }
 
     const userId = body.userId ?? null;
-    if (!userId || typeof userId !== 'string') {
+    if (!userId || typeof userId !== 'string' || userId === 'guest-user-bypass' || userId.trim() === '') {
       return new Response('Unauthorized', { status: 401 });
     }
+    console.log('[chat] userId from request (expect Supabase auth session user id):', userId);
 
     const rawMessages = Array.isArray(body.messages) ? body.messages : [];
     const messages = rawMessages
@@ -323,6 +365,13 @@ export async function POST(req: Request) {
         const content = getContentString(m);
         return { role, content: content || ' ' };
       });
+
+    // Fetch last N messages from DB for context (even if UI was cleared) so Nura remembers the user and prior discussion
+    const priorContext = await getPriorContextMessages(userId);
+
+    // Fetch display name from Supabase auth on every request (display_name / full_name / name, fallback email prefix)
+    const userDisplayName = await getUserDisplayName(userId);
+    console.log('[chat] user display name from auth metadata:', userDisplayName ?? 'null');
 
     if (messages.length > 0) {
       const last = messages[messages.length - 1];
@@ -344,14 +393,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const response = await openai.createChatCompletion({
-      model: 'gpt-4o',
-      stream: true,
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'system',
-          content: `You are NURA, a global, multi-language AI personal assistant specialized in calendar management, email, and meeting scheduling. You help users:
+    const systemBase = `You are NURA, a global, multi-language AI personal assistant specialized in calendar management, email, and meeting scheduling. You help users:
 - Check their calendar availability
 - Read and scan their Gmail inbox (use the list_messages tool)
 - Propose meeting times to others via email
@@ -374,10 +416,26 @@ Important:
 - Confirm details before sending emails or creating events
 - Be proactive in suggesting next steps
 
-CONTEXT-AWARE EMAILS (propose_meeting_slots): Use the language of the current conversation for 100% of the email—Subject, Greeting, Body, and Closing. If the conversation is in Hebrew, the email is 100% Hebrew (RTL). If in English, 100% English (LTR). If French, Spanish, Arabic, etc., the email must be perfectly formatted in that language. Dynamic formatting: RTL languages (e.g. Hebrew, Arabic) get dir='rtl' in the email HTML; LTR languages get dir='ltr'. Maintain a high-end, polite, and organized tone in every language—like a premium personal assistant. Subject: clean, no extra characters. Body: short paragraphs, one idea per line, blank line between paragraphs.`,
-        },
-        ...messages,
-      ],
+CONTEXT-AWARE EMAILS (propose_meeting_slots): Use the language of the current conversation for 100% of the email—Subject, Greeting, Body, and Closing. If the conversation is in Hebrew, the email is 100% Hebrew (RTL). If in English, 100% English (LTR). If French, Spanish, Arabic, etc., the email must be perfectly formatted in that language. Dynamic formatting: RTL languages (e.g. Hebrew, Arabic) get dir='rtl' in the email HTML; LTR languages get dir='ltr'. Maintain a high-end, polite, and organized tone in every language—like a premium personal assistant. Subject: clean, no extra characters. Body: short paragraphs, one idea per line, blank line between paragraphs.`;
+
+    const userNameForPrompt = userDisplayName ?? 'the user';
+    const systemContent = `Your name is NURA. You are talking to ${userNameForPrompt}. Always remember their name and past context from the database.\n\n` + systemBase;
+
+    const baseMessagesForCompletion = [
+      { role: 'system' as const, content: systemContent },
+      ...priorContext,
+      ...messages,
+    ];
+
+    console.log('VERSION_CHECK_1');
+    console.log('Fetching data for user:', userId);
+    console.log('[chat] finalMessages sent to OpenAI:', JSON.stringify(baseMessagesForCompletion, null, 2));
+
+    const response = await openai.createChatCompletion({
+      model: 'gpt-4o',
+      stream: true,
+      max_tokens: 2000,
+      messages: baseMessagesForCompletion,
       functions,
       function_call: 'auto',
     });
@@ -400,11 +458,13 @@ CONTEXT-AWARE EMAILS (propose_meeting_slots): Use the language of the current co
         const result = await handleFunctionCall(name, args, userId);
 
         const newMessages = createFunctionCallMessages(result as any);
+        const followUpMessages = [...baseMessagesForCompletion, ...newMessages];
+        console.log('[chat] tool follow-up completion: full context (system + priorContext + messages + tool msgs), message count:', followUpMessages.length);
         return openai.createChatCompletion({
           model: 'gpt-4o',
           stream: true,
           max_tokens: 2000,
-          messages: [...messages, ...newMessages] as any,
+          messages: followUpMessages as any,
           functions,
         });
       },
