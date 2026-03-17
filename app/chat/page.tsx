@@ -59,16 +59,8 @@ export default function ChatPage() {
   if (!user) return null;
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 bg-[#ff0000]">
+    <div className="flex flex-1 flex-col min-h-0 bg-[var(--bg)]">
       <div className="flex-1 min-h-0 flex flex-col px-8 pb-8 max-w-3xl w-full mx-auto">
-        <div className="shrink-0 mb-4 rounded-xl border-4 border-black bg-yellow-300 px-6 py-6">
-          <p className="text-5xl md:text-6xl font-black tracking-tight text-black">
-            IF YOU SEE THIS, THE CODE IS UPDATED
-          </p>
-        </div>
-        <div className="shrink-0 mb-4 rounded-xl border-2 border-red-600 bg-red-600/15 px-6 py-4">
-          <p className="text-3xl font-extrabold tracking-tight text-red-500">VERSION 2.0</p>
-        </div>
         {(digest !== null || digestLoading) && (
           <div className="shrink-0 mb-6 rounded-[var(--radius-salon)] glass-hero p-8">
             <div className="flex items-center gap-3 mb-3">

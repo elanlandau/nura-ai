@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { StreamingTextResponse, OpenAIStream } from 'ai';
 import { Configuration, OpenAIApi } from 'openai-edge';
 import { prisma } from '@/lib/db';
@@ -347,23 +346,16 @@ async function getUserDisplayName(userId: string): Promise<string | null> {
 }
 
 export async function POST(req: Request) {
-  // FORCE: deploy verification. If you hit /api/chat and do NOT get "I AM ALIVE",
-  // the live site is not running this code.
-  return new Response('I AM ALIVE', {
-    status: 200,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-  });
-
   try {
-    let body: { messages?: unknown; userId?: string; threadId?: string };
+    let body: { messages?: unknown; userId?: unknown; threadId?: unknown };
     try {
       body = await req.json();
     } catch {
       return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const userId = body.userId ?? null;
-    if (!userId || typeof userId !== 'string' || userId === 'guest-user-bypass' || userId.trim() === '') {
+    const userId = typeof body.userId === 'string' ? body.userId : null;
+    if (!userId || userId === 'guest-user-bypass' || userId.trim() === '') {
       return new Response('Unauthorized', { status: 401 });
     }
 
@@ -380,7 +372,7 @@ export async function POST(req: Request) {
     }
 
     // EXPLICIT: Never return "threadId required". If missing or empty, create a new thread.
-    let threadId = (body.threadId != null && typeof body.threadId === 'string') ? body.threadId.trim() : '';
+    let threadId = typeof body.threadId === 'string' ? body.threadId.trim() : '';
     let createdThreadId: string | null = null;
     if (!threadId) {
       const thread = await prisma.chatThread.create({
@@ -390,7 +382,7 @@ export async function POST(req: Request) {
       createdThreadId = thread.id;
     }
 
-    const rawMessages = Array.isArray(body.messages) ? body.messages : [];
+    const rawMessages = Array.isArray(body.messages) ? (body.messages as unknown[]) : [];
     const messages = rawMessages
       .filter(
         (m): m is { role: string; content?: unknown } =>
@@ -422,7 +414,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY ?? '';
     if (!apiKey || apiKey === 'mock-key' || apiKey.startsWith('sk-placeholder')) {
       return Response.json(
         { error: 'OpenAI API key is missing or invalid. Set OPENAI_API_KEY in .env with a valid key from https://platform.openai.com/api-keys' },
