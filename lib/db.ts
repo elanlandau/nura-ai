@@ -7,6 +7,12 @@ function isPostgresUrl(url: string | undefined): boolean {
   return Boolean(url && (url.startsWith('postgresql://') || url.startsWith('postgres://')));
 }
 
+function isEdgeRuntime(): boolean {
+  // Next.js sets NEXT_RUNTIME=edge for edge route handlers.
+  // Also detect global EdgeRuntime variable when present.
+  return process.env.NEXT_RUNTIME === 'edge' || typeof (globalThis as any).EdgeRuntime !== 'undefined';
+}
+
 /**
  * Single PrismaClient instance. Cached on globalThis so serverless (e.g. Vercel)
  * reuses one client per process and avoids PrismaClientInitializationError.
@@ -15,15 +21,21 @@ function isPostgresUrl(url: string | undefined): boolean {
 function getPrisma(): PrismaClient {
   if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
-  const databaseUrl = process.env.DATABASE_URL;
-  console.log('DB URL check:', databaseUrl?.slice(0, 15) ?? '(not set)');
-
-  if (isPostgresUrl(databaseUrl)) {
-    const adapter = new PrismaPg({ connectionString: databaseUrl! });
-    globalForPrisma.prisma = new PrismaClient({ adapter });
-  } else {
-    globalForPrisma.prisma = new PrismaClient();
+  if (isEdgeRuntime()) {
+    throw new Error(
+      'PrismaClientInitializationError: Prisma cannot run in the Edge runtime. ' +
+        'Set `export const runtime = \"nodejs\"` in any route handler that imports prisma.'
+    );
   }
+
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl || databaseUrl.trim() === '') {
+    throw new Error('PrismaClientInitializationError: DATABASE_URL is not set in the environment.');
+  }
+
+  globalForPrisma.prisma = isPostgresUrl(databaseUrl)
+    ? new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) })
+    : new PrismaClient();
   return globalForPrisma.prisma;
 }
 

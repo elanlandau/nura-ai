@@ -34,6 +34,7 @@ function mapRowToOAuthAccount(row: {
 }
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /**
  * GET ?userId=xxx&messageId=xxx – Fetch one Gmail message for deep link summary.

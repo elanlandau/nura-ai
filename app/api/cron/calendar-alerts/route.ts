@@ -4,6 +4,8 @@ import { listGoogleCalendarEvents } from '@/lib/integrations/google-calendar';
 import { sendPushToUser } from '@/lib/push-server';
 import type { OAuthAccount } from '@/lib/types';
 
+export const runtime = 'nodejs';
+
 function mapRowToOAuthAccount(row: {
   id: string;
   user_id: string;

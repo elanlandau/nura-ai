@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /** POST: Create a new chat thread for the user. Returns { threadId }. */
 export async function POST(request: NextRequest) {

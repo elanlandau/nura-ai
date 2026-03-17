@@ -11,6 +11,7 @@ import type { OAuthAccount } from '@/lib/types';
 const PRIOR_CONTEXT_MESSAGE_LIMIT = 10;
 
 export const maxDuration = 60;
+export const runtime = 'nodejs';
 
 const config = new Configuration({
   apiKey: process.env.OPENAI_API_KEY || 'mock-key',

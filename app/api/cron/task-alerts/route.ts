@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendPushToUser } from '@/lib/push-server';
 
+export const runtime = 'nodejs';
+
 export const maxDuration = 60;
 
 /**

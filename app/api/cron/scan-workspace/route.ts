@@ -6,6 +6,8 @@ import { classifyEmailWithLLM } from '@/lib/nura-pulse';
 import type { OAuthAccount } from '@/lib/types';
 import type { GmailMessageSummary } from '@/lib/integrations/gmail';
 
+export const runtime = 'nodejs';
+
 export interface ClassificationLog {
   emailId: string;
   subject: string;

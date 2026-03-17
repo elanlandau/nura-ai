@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
 const DB_TIMEOUT_MS = 3000;
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const userId = request.nextUrl.searchParams.get('userId');

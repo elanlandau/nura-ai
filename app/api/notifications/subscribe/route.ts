@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /** POST: Save push subscription for the user (so Nura can send when tab is closed). */
 export async function POST(request: NextRequest) {

@@ -6,6 +6,8 @@ import { isImportantEmail, senderDisplayName } from '@/lib/email-importance';
 import type { OAuthAccount } from '@/lib/types';
 import type { GmailMessageSummary } from '@/lib/integrations/gmail';
 
+export const runtime = 'nodejs';
+
 function mapRowToOAuthAccount(row: {
   id: string;
   user_id: string;

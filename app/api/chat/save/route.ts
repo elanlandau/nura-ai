@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   let body: { userId?: string; threadId?: string; role?: string; content?: unknown };
   try {

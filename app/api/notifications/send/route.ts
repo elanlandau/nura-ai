@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendPushToUser } from '@/lib/push-server';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /** POST: Send a push notification to a user (e.g. from cron or Nura proactive logic). */
 export async function POST(request: NextRequest) {

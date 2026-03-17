@@ -6,6 +6,7 @@ import { refreshGoogleAccessToken } from '@/lib/integrations/google-calendar';
 import type { OAuthAccount } from '@/lib/types';
 
 export const maxDuration = 30;
+export const runtime = 'nodejs';
 
 /** Refresh Google token if expired and persist to OAuthAccount so Gmail API calls succeed. */
 async function ensureValidTokenAndPersist(userId: string, account: OAuthAccount): Promise<OAuthAccount> {
