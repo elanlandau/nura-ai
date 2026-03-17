@@ -50,6 +50,8 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
   // Always send to /api/chat. Pass threadId when we have one (from URL or X-Thread-Id); otherwise '' so server creates thread.
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: '/api/chat',
+    // Our API uses StreamingTextResponse(OpenAIStream), which is the legacy "text" streaming protocol.
+    streamProtocol: 'text',
     body: { userId, threadId: threadId || '' },
     initialMessages: [],
     onResponse: (res) => {
