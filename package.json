@@ -6,7 +6,7 @@
     "dev": "next dev",
     "postinstall": "npx prisma generate",
     "migrate": "prisma db push",
-    "build": "prisma generate && prisma db push && next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
