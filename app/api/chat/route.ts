@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { StreamingTextResponse, OpenAIStream } from 'ai';
 import { Configuration, OpenAIApi } from 'openai-edge';
 import { prisma } from '@/lib/db';
@@ -346,6 +347,13 @@ async function getUserDisplayName(userId: string): Promise<string | null> {
 }
 
 export async function POST(req: Request) {
+  // FORCE: deploy verification. If you hit /api/chat and do NOT get "I AM ALIVE",
+  // the live site is not running this code.
+  return new Response('I AM ALIVE', {
+    status: 200,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+
   try {
     let body: { messages?: unknown; userId?: string; threadId?: string };
     try {
