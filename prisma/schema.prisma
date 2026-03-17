@@ -3,13 +3,15 @@
 // Tables match Supabase: OAuthAccount, MeetingThread, ChatMessage (run prisma/supabase-init.sql if needed).
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  schemas   = ["public", "auth"]
 }
 
 model OAuthAccount {
@@ -26,6 +28,7 @@ model OAuthAccount {
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 
+  @@schema("public")
   @@unique([user_id, provider])
 }
 
@@ -42,6 +45,8 @@ model MeetingThread {
   calendar_event_id  String?
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model ChatThread {
@@ -50,6 +55,8 @@ model ChatThread {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   messages  ChatMessage[]
+
+  @@schema("public")
 }
 
 model ChatMessage {
@@ -60,6 +67,8 @@ model ChatMessage {
   content   String
   created_at DateTime @default(now())
   thread    ChatThread? @relation(fields: [thread_id], references: [id], onDelete: Cascade)
+
+  @@schema("public")
 }
 
 model PushSubscription {
@@ -70,6 +79,7 @@ model PushSubscription {
   auth      String   // auth secret
   created_at DateTime @default(now())
 
+  @@schema("public")
   @@map("push_subscription")
 }
 
@@ -82,6 +92,7 @@ model Task {
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
+  @@schema("public")
   @@map("task")
 }
 
@@ -91,6 +102,7 @@ model EmailPushSent {
   message_id String   // Gmail message id
   created_at DateTime @default(now())
 
+  @@schema("public")
   @@unique([user_id, message_id])
   @@map("email_push_sent")
 }
