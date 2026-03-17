@@ -359,6 +359,18 @@ export async function POST(req: Request) {
       return new Response('Unauthorized', { status: 401 });
     }
 
+    // DEBUG MODE (deploy verification): if enabled, respond without DB/Supabase/OpenAI.
+    // Set env var NURA_ALIVE_MODE=1 in Vercel for ~5 minutes, deploy, verify it hits live, then remove.
+    if (process.env.NURA_ALIVE_MODE === '1') {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('I AM ALIVE'));
+          controller.close();
+        },
+      });
+      return new StreamingTextResponse(stream);
+    }
+
     // EXPLICIT: Never return "threadId required". If missing or empty, create a new thread.
     let threadId = (body.threadId != null && typeof body.threadId === 'string') ? body.threadId.trim() : '';
     let createdThreadId: string | null = null;

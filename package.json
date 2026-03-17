@@ -82,6 +82,7 @@
   },
   "devDependencies": {
     "@types/pg": "^8.18.0",
+    "@types/web-push": "^3.6.4",
     "prisma": "^6.0.0"
   }
 }

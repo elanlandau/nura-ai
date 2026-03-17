@@ -55,7 +55,7 @@ export async function subscribePush(vapidPublicKey: string): Promise<PushSubscri
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as unknown as BufferSource,
     });
     return sub;
   } catch {
@@ -79,10 +79,17 @@ export function serializeSubscription(sub: PushSubscription): { endpoint: string
   return {
     endpoint: sub.endpoint,
     keys: {
-      p256dh: keys ? btoa(String.fromCharCode(...new Uint8Array(keys))) : '',
-      auth: auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : '',
+      p256dh: keys ? arrayBufferToBase64(keys) : '',
+      auth: auth ? arrayBufferToBase64(auth) : '',
     },
   };
+}
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 /** Next.js inlines NEXT_PUBLIC_* at build time in the client bundle. */

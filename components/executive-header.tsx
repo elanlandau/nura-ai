@@ -30,7 +30,8 @@ export function ExecutiveHeader() {
 
   // Ask for notification permission when user first lands on dashboard (protected layout).
   useEffect(() => {
-    if (!user || !isSupported() || permissionAsked.current) return;
+    const uid = user?.id;
+    if (!uid || !isSupported() || permissionAsked.current) return;
     permissionAsked.current = true;
     async function setup() {
       if (permissionState() === 'default') {
@@ -38,8 +39,8 @@ export function ExecutiveHeader() {
       }
       await registerServiceWorker();
       // So Nura can send when tab is closed: subscribe and save if VAPID is configured.
-      if (permissionState() === 'granted' && getVapidPublicKey() && user.id) {
-        subscribeAndSave(user.id).catch(() => {});
+      if (permissionState() === 'granted' && getVapidPublicKey()) {
+        subscribeAndSave(uid as string).catch(() => {});
       }
     }
     setup();

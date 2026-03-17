@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     if (!userId || typeof userId !== 'string' || userId.trim() === '') {
       return NextResponse.json({ error: 'userId required' }, { status: 401 });
     }
-    if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth') {
+    if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
       return NextResponse.json({ error: 'subscription with endpoint and keys required' }, { status: 400 });
     }
     await prisma.pushSubscription.upsert({
