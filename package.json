@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "npx prisma generate",
-    "build": "prisma generate && next build",
+    "migrate": "prisma db push",
+    "build": "prisma generate && prisma db push && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
