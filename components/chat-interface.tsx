@@ -310,6 +310,7 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
               }
             }}
           />
+          {/* EXPLICIT: Do NOT require threadId to send. Server creates a thread if missing. */}
           <Button
             type="submit"
             disabled={isLoading || !input.trim()}

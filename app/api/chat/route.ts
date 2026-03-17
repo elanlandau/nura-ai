@@ -355,12 +355,12 @@ export async function POST(req: Request) {
     }
 
     const userId = body.userId ?? null;
-    let threadId = (body.threadId != null && typeof body.threadId === 'string') ? body.threadId.trim() : '';
     if (!userId || typeof userId !== 'string' || userId === 'guest-user-bypass' || userId.trim() === '') {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    // If no threadId, create a new thread so first message always works (e.g. after 500 on threads).
+    // EXPLICIT: Never return "threadId required". If missing or empty, create a new thread.
+    let threadId = (body.threadId != null && typeof body.threadId === 'string') ? body.threadId.trim() : '';
     let createdThreadId: string | null = null;
     if (!threadId) {
       const thread = await prisma.chatThread.create({
