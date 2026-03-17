@@ -32,27 +32,33 @@ const TOOL_LABELS: Record<string, string> = {
 const NURA_INTRO =
   'Hello, I am Nura. I am your Executive AI. I manage your schedule, track your tasks, and ensure your digital life is synchronized. How can I assist you tonight?';
 
+/**
+ * We do NOT depend on /api/chat/threads. We call /api/chat directly with threadId or ''.
+ * Server creates a thread when threadId is missing and returns X-Thread-Id.
+ */
 export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
   const threadIdForSaveRef = useRef<string | null>(null);
-  const [threadId, setThreadId] = useState<string | null>(() => initialThreadId ?? searchParams.get('thread') ?? null);
+  const skipHistoryFetchRef = useRef(false);
+  // threadId is only for: loading history when opening /chat?thread=xxx, and for saving assistant replies. Never blocks send.
+  const [threadId, setThreadId] = useState<string | null>(() => searchParams.get('thread') ?? initialThreadId ?? null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
+  // Always send to /api/chat. Pass threadId when we have one (from URL or X-Thread-Id); otherwise '' so server creates thread.
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: '/api/chat',
-    body: { userId, threadId: threadId ?? '' },
+    body: { userId, threadId: threadId || '' },
     initialMessages: [],
     onResponse: (res) => {
       const newThreadId = res.headers.get('X-Thread-Id');
       if (newThreadId) {
         threadIdForSaveRef.current = newThreadId;
-        if (!threadId) {
-          setThreadId(newThreadId);
-          router.replace(`/chat?thread=${encodeURIComponent(newThreadId)}`, { scroll: false });
-        }
+        skipHistoryFetchRef.current = true;
+        setThreadId(newThreadId);
+        router.replace(`/chat?thread=${encodeURIComponent(newThreadId)}`, { scroll: false });
       }
     },
     onError: (err: unknown) => {
@@ -62,7 +68,7 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
     },
     onFinish: (message) => {
       setSubmitError(null);
-      const tid = threadId ?? threadIdForSaveRef.current;
+      const tid = threadIdForSaveRef.current || threadId;
       if (message.role === 'assistant' && tid) {
         const content = getMessageContent(message);
         if (content.trim()) {
@@ -76,27 +82,23 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
     },
   });
 
+  // Sync threadId from URL when user navigates (e.g. History sidebar).
   useEffect(() => {
     const fromUrl = searchParams.get('thread');
     if (fromUrl && fromUrl !== threadId) setThreadId(fromUrl);
   }, [searchParams]);
 
+  // Load history only when we have threadId (e.g. from URL /chat?thread=xxx). Never call /api/chat/threads. Skip fetch when thread was just created by server (X-Thread-Id).
   useEffect(() => {
     if (!userId) return;
-    if (threadId === null) {
-      fetch('/api/chat/threads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.threadId) {
-            setThreadId(data.threadId);
-            router.replace(`/chat?thread=${encodeURIComponent(data.threadId)}`, { scroll: false });
-          }
-        })
-        .catch(() => setHistoryLoaded(true));
+    if (!threadId) {
+      setMessages([{ id: 'nura-intro', role: 'assistant', content: NURA_INTRO }]);
+      setHistoryLoaded(true);
+      return;
+    }
+    if (skipHistoryFetchRef.current) {
+      skipHistoryFetchRef.current = false;
+      setHistoryLoaded(true);
       return;
     }
     let cancelled = false;
@@ -117,25 +119,17 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
       })
       .catch(() => setHistoryLoaded(true));
     return () => { cancelled = true; };
-  }, [userId, threadId, setMessages, router]);
+  }, [userId, threadId, setMessages]);
 
+  // New Chat: clear UI and URL. Do NOT call /api/chat/threads. Next send will hit /api/chat with threadId '' and server creates thread.
   const handleNewChat = () => {
-    fetch('/api/chat/threads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.threadId) {
-          setThreadId(data.threadId);
-          setMessages([]);
-          setSubmitError(null);
-          setHistoryLoaded(false);
-          router.replace(`/chat?thread=${encodeURIComponent(data.threadId)}`, { scroll: false });
-        }
-      })
-      .catch(console.error);
+    setThreadId(null);
+    threadIdForSaveRef.current = null;
+    skipHistoryFetchRef.current = false;
+    setMessages([{ id: 'nura-intro', role: 'assistant', content: NURA_INTRO }]);
+    setSubmitError(null);
+    setHistoryLoaded(true);
+    router.replace('/chat', { scroll: false });
   };
 
   const currentTool = (() => {
@@ -310,7 +304,6 @@ export function ChatInterface({ userId, initialThreadId }: ChatInterfaceProps) {
               }
             }}
           />
-          {/* EXPLICIT: Do NOT require threadId to send. Server creates a thread if missing. */}
           <Button
             type="submit"
             disabled={isLoading || !input.trim()}
