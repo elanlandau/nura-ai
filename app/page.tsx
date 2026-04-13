@@ -1,202 +1,101 @@
 'use client';
 
+import { signIn } from 'next-auth/react';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
-function GoogleIcon({ className }: { className?: string }) {
+function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className={className} width="20" height="20">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="currentColor" opacity={0.9} d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="currentColor" opacity={0.75} d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path fill="currentColor" opacity={0.85} d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
     </svg>
   );
 }
 
-function MicrosoftIcon({ className }: { className?: string }) {
+function MicrosoftIcon() {
   return (
-    <svg viewBox="0 0 24 24" className={className} width="20" height="20">
-      <path fill="#f35325" d="M1 1h10v10H1z" />
-      <path fill="#81bc06" d="M1 13h10v10H1z" />
-      <path fill="#05a6f0" d="M13 1h10v10H13z" />
-      <path fill="#ffba08" d="M13 13h10v10H13z" />
-    </svg>
-  );
-}
-
-function AppleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} width="20" height="20" fill="currentColor">
-      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <path fill="currentColor" d="M1 1h10v10H1z" />
+      <path fill="currentColor" opacity={0.85} d="M1 13h10v10H1z" />
+      <path fill="currentColor" opacity={0.7} d="M13 1h10v10H13z" />
+      <path fill="currentColor" opacity={0.55} d="M13 13h10v10H13z" />
     </svg>
   );
 }
 
 const SOCIAL_BTN =
-  'w-full h-12 rounded-xl font-medium flex items-center justify-center gap-3 border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)] text-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[rgba(59,130,246,0.5)] focus:ring-offset-2 focus:ring-offset-[#0a0a0a] transition-[var(--transition-lux)] disabled:opacity-70';
+  'gallery-line-button w-full py-4 text-sm tracking-wide font-medium flex items-center justify-center gap-3 text-black disabled:opacity-70';
 
 export default function LandingPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'google' | 'microsoft' | 'apple' | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [msLoading, setMsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSignUp, setIsSignUp] = useState(false);
 
-  const redirectToChat = typeof window !== 'undefined' ? `${window.location.origin}/chat` : '/chat';
-
-  const handleSocialAuth = async (provider: 'google' | 'azure' | 'apple') => {
+  const handleGoogle = async () => {
     setError(null);
-    setSocialLoading(provider === 'google' ? 'google' : provider === 'azure' ? 'microsoft' : 'apple');
+    setGoogleLoading(true);
     try {
-      const { data, error: err } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: redirectToChat },
-      });
-      if (err) throw err;
-      if (data?.url) window.location.href = data.url;
-      else setError('Could not start sign in');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sign in failed');
-    } finally {
-      setSocialLoading(null);
+      await signIn('google', { callbackUrl: '/home' });
+    } catch {
+      setError('Could not start Google sign-in.');
+      setGoogleLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleMicrosoft = async () => {
     setError(null);
+    setMsLoading(true);
     try {
-      if (isSignUp) {
-        const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
-        if (err) throw err;
-        setError(null);
-        setLoading(false);
-        setPassword('');
-        if (data.session) {
-          router.replace('/chat');
-          router.refresh();
-        }
-        return;
-      }
-      const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (err) throw err;
-      router.replace('/chat');
-      router.refresh();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : isSignUp ? 'Sign up failed' : 'Login failed';
-      setError(message);
-      setLoading(false);
+      await signIn('azure-ad', { callbackUrl: '/home' });
+    } catch {
+      setError('Could not start Microsoft sign-in.');
+      setMsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#0a0a0a] px-6 py-12">
-      <div className="w-full max-w-sm flex flex-col items-center text-center">
-        <h1
-          className="text-7xl md:text-8xl font-semibold tracking-tight text-[#fafafa] mb-4"
-          style={{
-            textShadow: '0 0 40px rgba(59, 130, 246, 0.25), 0 0 80px rgba(59, 130, 246, 0.15)',
-          }}
-        >
-          NURA
-        </h1>
-        <p className="text-sm text-[#a0a0a0] mb-12">
+    <div className="w-full flex flex-col items-center text-black">
+      <div className="w-full max-w-md flex flex-col items-center border-0 border-b border-black pb-12">
+        <h1 className="gallery-heading text-7xl md:text-8xl mb-6">NURA</h1>
+        <p className="text-sm text-black/50 mb-12 tracking-wide leading-relaxed text-center">
           Your AI Executive Assistant
         </p>
 
-        <form onSubmit={handleSubmit} className="w-full space-y-4">
-          <input
-            id="email"
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full h-12 px-4 rounded-xl bg-transparent border border-[rgba(255,255,255,0.12)] text-[#fafafa] placeholder:text-[#666] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-transparent transition-[var(--transition-lux)]"
-          />
-          <input
-            id="password"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full h-12 px-4 rounded-xl bg-transparent border border-[rgba(255,255,255,0.12)] text-[#fafafa] placeholder:text-[#666] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-transparent transition-[var(--transition-lux)]"
-          />
-          {error && (
-            <p className="text-sm text-[#ef4444] text-center" role="alert">{error}</p>
-          )}
+        <div className="w-full space-y-6">
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 rounded-xl font-medium text-white bg-[#3b82f6] hover:bg-[#2563eb] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-[#0a0a0a] disabled:opacity-70 transition-[var(--transition-lux)]"
+            type="button"
+            onClick={handleGoogle}
+            disabled={googleLoading || msLoading}
+            className={SOCIAL_BTN}
           >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : isSignUp ? 'Sign up' : 'Login'}
+            {googleLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
+            <span>Continue with Google</span>
           </button>
-        </form>
 
-        <button
-          type="button"
-          onClick={() => { setIsSignUp((v) => !v); setError(null); }}
-          className="mt-6 text-sm text-[#a0a0a0] hover:text-[#3b82f6] transition-colors"
-        >
-          {isSignUp ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
-        </button>
-
-        <div className="w-full mt-10">
-          <div className="relative flex items-center gap-4 my-6">
-            <span className="flex-1 h-px bg-[rgba(255,255,255,0.12)]" />
-            <span className="text-xs font-medium text-[#666] uppercase tracking-wider">OR</span>
-            <span className="flex-1 h-px bg-[rgba(255,255,255,0.12)]" />
-          </div>
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => handleSocialAuth('google')}
-              disabled={!!socialLoading}
-              className={SOCIAL_BTN}
-            >
-              {socialLoading === 'google' ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <GoogleIcon />
-              )}
-              <span>Continue with Google</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSocialAuth('azure')}
-              disabled={!!socialLoading}
-              className={SOCIAL_BTN}
-            >
-              {socialLoading === 'microsoft' ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <MicrosoftIcon />
-              )}
-              <span>Continue with Microsoft</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSocialAuth('apple')}
-              disabled={!!socialLoading}
-              className={SOCIAL_BTN}
-            >
-              {socialLoading === 'apple' ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <AppleIcon />
-              )}
-              <span>Continue with Apple</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleMicrosoft}
+            disabled={googleLoading || msLoading}
+            className={SOCIAL_BTN}
+          >
+            {msLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <MicrosoftIcon />}
+            <span>Continue with Microsoft</span>
+          </button>
         </div>
+
+        {error && (
+          <p className="gallery-line-notice text-sm text-center text-black py-4 leading-relaxed mt-6" role="alert">
+            {error}
+          </p>
+        )}
+
+        <p className="mt-10 text-xs text-black/35 tracking-wide leading-relaxed text-center">
+          Secure OAuth sign-in via Google or Microsoft.<br />
+          No passwords stored.
+        </p>
       </div>
     </div>
   );

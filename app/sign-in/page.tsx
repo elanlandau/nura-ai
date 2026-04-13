@@ -1,108 +1,111 @@
 'use client';
 
 import { useState } from 'react';
-import { Bot } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { signIn } from 'next-auth/react';
+import { Loader2 } from 'lucide-react';
 
-function GoogleIcon({ className }: { className?: string }) {
+function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className={className} width="20" height="20">
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-      />
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="currentColor" opacity={0.9} d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="currentColor" opacity={0.75} d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path fill="currentColor" opacity={0.85} d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
     </svg>
   );
 }
 
+function MicrosoftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <path fill="currentColor" d="M1 1h10v10H1z" />
+      <path fill="currentColor" opacity={0.85} d="M1 13h10v10H1z" />
+      <path fill="currentColor" opacity={0.7} d="M13 1h10v10H13z" />
+      <path fill="currentColor" opacity={0.55} d="M13 13h10v10H13z" />
+    </svg>
+  );
+}
+
+const SOCIAL_BTN =
+  'gallery-line-button w-full py-4 text-sm tracking-wide font-medium flex items-center justify-center gap-3 text-black disabled:opacity-70';
+
 export default function SignInPage() {
-  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [msLoading, setMsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSignInWithGoogle = async () => {
-    console.log('[SignIn] handleSignInWithGoogle triggered');
-    setLoading(true);
+  const handleGoogle = async () => {
     setError(null);
+    setGoogleLoading(true);
     try {
-      // Supabase sends the user here after Google sign-in (Google → Supabase callback → this URL).
-      const redirectTo = 'https://nurapersonal.com';
-      console.log('[SignIn] Calling supabase.auth.signInWithOAuth, redirectTo:', redirectTo);
-      const { data, error: err } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-            scope: [
-              'https://www.googleapis.com/auth/gmail.readonly',
-              'https://www.googleapis.com/auth/gmail.send',
-              'https://www.googleapis.com/auth/calendar.readonly',
-              'https://www.googleapis.com/auth/calendar.events',
-              'https://www.googleapis.com/auth/drive.readonly',
-              'https://www.googleapis.com/auth/userinfo.email',
-              'https://www.googleapis.com/auth/userinfo.profile',
-            ].join(' '),
-          },
-        },
-      });
-      if (err) {
-        console.error('[SignIn] Supabase OAuth error:', err);
-        throw err;
-      }
-      console.log('[SignIn] OAuth response:', data?.url ? 'redirect URL received' : 'no redirect URL', data);
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        console.error('[SignIn] No redirect URL in response – check Supabase project URL / redirect settings');
-        setError('Sign-in could not start. Check console.');
-        setLoading(false);
-      }
-    } catch (e: unknown) {
-      console.error('[SignIn] Sign-in error:', e);
-      const message = e instanceof Error ? e.message : 'ההתחברות נכשלה';
-      setError(message);
-      setLoading(false);
+      await signIn('google', { callbackUrl: '/home' });
+    } catch {
+      setError('Could not start Google sign-in.');
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleMicrosoft = async () => {
+    setError(null);
+    setMsLoading(true);
+    try {
+      await signIn('azure-ad', { callbackUrl: '/home' });
+    } catch {
+      setError('Could not start Microsoft sign-in.');
+      setMsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[var(--bg)] px-8">
-      <div className="glass-hero rounded-[var(--radius-salon)] p-8 sm:p-10 flex flex-col items-center max-w-sm w-full">
-        <div className="h-16 w-16 rounded-2xl bg-[var(--coral)] flex items-center justify-center mb-8" style={{ boxShadow: 'var(--coral-glow-strong)' }}>
-          <Bot className="h-8 w-8 text-white" />
-        </div>
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">NURA</h1>
-        <p className="text-sm text-[var(--text-muted)] mb-8 text-center">עוזר האישי החכם שלך</p>
+    <div className="w-full flex flex-col items-center text-black">
+      <div className="w-full max-w-md flex flex-col items-center pb-12 border-0 border-b border-black">
+        <h1 className="gallery-heading text-7xl md:text-8xl mb-4">NURA</h1>
+        <p className="text-sm text-black/50 mb-12 tracking-wide leading-relaxed text-center">
+          Your AI Executive Assistant
+        </p>
 
-        <button
-          type="button"
-          onClick={handleSignInWithGoogle}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-3 h-12 rounded-[var(--radius-salon)] font-medium text-white bg-[var(--coral)] hover:bg-[var(--coral)]/90 focus:outline-none focus:ring-2 focus:ring-[var(--coral)]/50 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-[var(--transition-lux)]"
-          style={{ boxShadow: 'var(--coral-glow)' }}
-        >
-          <GoogleIcon />
-          <span>{loading ? 'מתחבר...' : 'התחבר עם Google'}</span>
-        </button>
+        <p className="text-xs text-black/40 mb-10 tracking-wide uppercase">Sign in to continue</p>
+
+        <div className="w-full space-y-6">
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={googleLoading || msLoading}
+            className={SOCIAL_BTN}
+          >
+            {googleLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <GoogleIcon />
+            )}
+            <span>Continue with Google</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMicrosoft}
+            disabled={googleLoading || msLoading}
+            className={SOCIAL_BTN}
+          >
+            {msLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <MicrosoftIcon />
+            )}
+            <span>Continue with Microsoft</span>
+          </button>
+        </div>
 
         {error && (
-          <p className="mt-4 text-sm text-[var(--coral)] text-center" role="alert">
+          <p className="gallery-line-notice text-sm text-center text-black py-4 leading-relaxed mt-6" role="alert">
             {error}
           </p>
         )}
+
+        <p className="mt-10 text-xs text-black/35 tracking-wide leading-relaxed text-center">
+          Sign in with your Google or Microsoft account.<br />
+          OAuth tokens are stored securely and never shared.
+        </p>
       </div>
     </div>
   );

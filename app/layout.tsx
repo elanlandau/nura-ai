@@ -20,33 +20,23 @@ const baseUrl = 'https://nurapersonal.com';
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
-  title: 'NURA - AI Personal Assistant',
-  description: 'Your intelligent scheduling assistant',
+  title: 'NURA - AI Executive Assistant',
+  description: 'Your intelligent AI executive assistant',
   openGraph: {
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
-    ],
+    images: [{ url: `${baseUrl}/og.png` }],
   },
   twitter: {
     card: 'summary_large_image',
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
-    ],
+    images: [{ url: `${baseUrl}/og.png` }],
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="he" suppressHydrationWarning>
-      <body className={`${inter.className} bg-[var(--bg)] text-[var(--text-primary)] antialiased`} style={{ letterSpacing: '0.02em' }}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.className} bg-[#FCFAF7] text-black antialiased text-[14px] leading-relaxed tracking-wide`}
+      >
         <SupabaseProvider>
           <AuthGuard>{children}</AuthGuard>
         </SupabaseProvider>

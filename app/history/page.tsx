@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSupabase } from '@/lib/supabase/provider';
+import { useSession } from 'next-auth/react';
 import { History, MessageSquare, Loader2 } from 'lucide-react';
 
 interface ThreadItem {
@@ -13,7 +13,8 @@ interface ThreadItem {
 }
 
 export default function HistoryPage() {
-  const { user } = useSupabase();
+  const { data: session } = useSession();
+  const user = session?.user ?? null;
   const [threads, setThreads] = useState<ThreadItem[]>([]);
   const [loading, setLoading] = useState(true);
 

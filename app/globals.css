@@ -2,145 +2,331 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Premium Dark Mode – #0a0a0a, white/blue accents */
+/* —— Gallery: eggshell canvas, architectural lines —— */
 :root {
-  --bg: #0a0a0a;
-  --bg-card: #141414;
-  --sidebar-bg: rgba(20, 20, 20, 0.9);
-  --header-bg: rgba(15, 15, 15, 0.95);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --text-primary: #fafafa;
-  --text-muted: #a0a0a0;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --error: #ef4444;
-  --beige-bubble: #1a1a1a;
-  --shadow-soft: 0 4px 30px rgba(0, 0, 0, 0.4);
-  --shadow-card: 0 4px 30px rgba(0, 0, 0, 0.3);
-  --sidebar-width: 14rem;
-  --sidebar-collapsed: 3.5rem;
+  --museum-white: #ffffff;
+  --museum-black: #000000;
+  --museum-canvas: #fcfaf7;
+  --museum-rule: #e5e5e5;
+
+  --bg: var(--museum-white);
+  --bg-elevated: var(--museum-white);
+  --bg-card: var(--museum-white);
+  --sidebar-bg: var(--museum-white);
+  --sidebar-border: var(--museum-rule);
+  --header-bg: var(--museum-canvas);
+  --border-subtle: var(--museum-rule);
+  --border-glass: var(--museum-rule);
+  --text-primary: var(--museum-black);
+  --text-muted: rgba(0, 0, 0, 0.45);
+  --accent: var(--museum-black);
+  --accent-hover: var(--museum-black);
+  --accent-soft: rgba(0, 0, 0, 0.04);
+  --error: var(--museum-black);
+  --assistant-bubble: #fcfaf7;
+  --assistant-bubble-border: var(--museum-rule);
+  --assistant-text: var(--museum-black);
+  --user-bubble-from: #000000;
+  --user-bubble-to: #000000;
+  --user-bubble-glow: none;
+  --shadow-soft: none;
+  --shadow-card: none;
+  --sidebar-width: 11.5rem;
+  --sidebar-collapsed: 3rem;
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  --radius-salon: 16px;
-  --transition-lux: 0.3s ease-out;
-  /* Legacy aliases for components still using coral/teal */
-  --coral: #3b82f6;
-  --coral-soft: rgba(59, 130, 246, 0.15);
-  --coral-glow: 0 0 20px rgba(59, 130, 246, 0.2);
-  --coral-glow-strong: 0 0 28px rgba(59, 130, 246, 0.25);
-  --teal: #60a5fa;
-  --teal-soft: rgba(96, 165, 250, 0.15);
-  --mint: #34d399;
-  --mint-soft: rgba(52, 211, 153, 0.2);
+  --radius-salon: 0px;
+  --radius-bubble: 0px;
+  --transition-lux: 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  --coral: var(--museum-black);
+  --coral-soft: rgba(0, 0, 0, 0.06);
+  --coral-glow: none;
+  --coral-glow-strong: none;
+  --teal: var(--museum-black);
+  --teal-soft: rgba(0, 0, 0, 0.06);
+  --mint: var(--museum-black);
+  --mint-soft: rgba(0, 0, 0, 0.06);
+  --beige-bubble: var(--assistant-bubble);
+
+  --font-gallery-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, 'Noto Serif', serif;
+
+  /* shadcn / radix — museum */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 0% 20%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 0 0% 0%;
+  --radius: 0px;
+  --chart-1: 0 0% 20%;
+  --chart-2: 0 0% 40%;
+  --chart-3: 0 0% 60%;
+  --chart-4: 0 0% 30%;
+  --chart-5: 0 0% 50%;
+}
+
+/* Seamless: hide scrollbars globally (content still scrolls) */
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+body::-webkit-scrollbar {
+  display: none;
 }
 
 @layer base {
-  * {
-    border-color: transparent;
+  *,
+  *::before,
+  *::after {
+    border-radius: 0 !important;
   }
   body {
-    @apply antialiased;
-    background: var(--bg);
-    color: var(--text-primary);
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply antialiased bg-[#FCFAF7] text-black tracking-wide;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-gallery-serif);
+    font-style: italic;
+    letter-spacing: 0.02em;
   }
 }
 
-/* Salon cards – no borders, soft depth */
-.glass {
-  background: var(--sidebar-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: var(--shadow-soft);
+/* Premium display titles (use in addition to Tailwind text-* ) */
+.gallery-heading {
+  font-family: var(--font-gallery-serif);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
-.glass-pod {
-  background: var(--bg-card);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: var(--shadow-card);
-  border-radius: var(--radius-salon);
+/* Architectural controls: single bottom rule only */
+.gallery-line-field {
+  border: none !important;
+  border-bottom: 1px solid #000000 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.gallery-line-field:focus,
+.gallery-line-field:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-bottom-color: #000000 !important;
 }
 
+.gallery-line-button {
+  border: none !important;
+  border-bottom: 1px solid #000000 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.gallery-line-button:focus-visible {
+  outline: 1px solid #000000;
+  outline-offset: 4px;
+}
+
+.gallery-line-notice {
+  border: none !important;
+  border-bottom: 1px solid #000000 !important;
+  background: transparent !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Flat surfaces — no glass, no shadow */
+.glass,
+.glass-sidebar,
+.glass-pod,
 .glass-hero {
-  background: var(--bg-card);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  box-shadow: var(--shadow-card), var(--coral-glow);
-  border-radius: var(--radius-salon);
-  border: 1px solid var(--border-subtle);
+  background: var(--museum-canvas);
+  border: none !important;
+  border-bottom: 1px solid var(--museum-rule) !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-/* Floating input – coral neon capsule */
+.glass-sidebar {
+  border-right: 1px solid var(--museum-rule);
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
 .input-pod {
-  transition: all var(--transition-lux);
-  box-shadow: var(--shadow-soft);
+  transition: border-color var(--transition-lux);
+  box-shadow: none !important;
+  border: none !important;
+  border-bottom: 1px solid #000000 !important;
 }
 .input-pod:focus-within {
-  box-shadow: var(--shadow-soft), var(--coral-glow);
+  box-shadow: none !important;
+  border-bottom-color: #000000 !important;
 }
 
-/* Message entrance */
+.chat-bubble-user {
+  background: var(--museum-black);
+  color: var(--museum-white);
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-bottom: 1px solid #000000 !important;
+}
+
+.chat-bubble-assistant {
+  background: var(--museum-canvas);
+  color: var(--museum-black);
+  border-radius: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid var(--museum-rule) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none !important;
+}
+
 @keyframes message-in {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 .animate-message-in {
-  animation: message-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: message-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes thinking-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes thinking-pulse-soft {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.nura-thinking-shell {
+  animation: thinking-pulse-soft 2.2s ease-in-out infinite;
+}
+
+.nura-thinking-track {
+  height: 2px;
+  border-radius: 0 !important;
+  background: var(--museum-rule);
+  overflow: hidden;
+  position: relative;
+}
+
+.nura-thinking-shimmer {
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.15), transparent);
+  animation: thinking-shimmer 1.35s ease-in-out infinite;
 }
 
 .animate-thinking-pulse {
-  animation: thinking-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes thinking-pulse {
-  0%, 100% { opacity: 0.9; }
-  50% { opacity: 1; }
+  animation: thinking-pulse-soft 1.5s ease-in-out infinite;
 }
 
 .status-dot-mint {
-  background: var(--mint);
-  box-shadow: 0 0 0 2px var(--bg), 0 0 12px 2px var(--mint-soft);
+  background: var(--museum-black);
+  box-shadow: none !important;
 }
 
+.scrollbar-thin {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
 .scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .pulse-dot {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 @keyframes pulse-dot {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
-    box-shadow: 0 0 0 0 var(--mint);
   }
   50% {
-    opacity: 0.95;
-    box-shadow: 0 0 0 6px var(--mint-soft);
+    opacity: 0.7;
   }
 }
 
-/* Global luxury transition */
 .salon-transition {
   transition: all var(--transition-lux);
+}
+
+.sidebar-new-chat {
+  box-shadow: none !important;
+  border: none !important;
+  border-bottom: 1px solid #000000 !important;
+}
+.sidebar-new-chat:hover {
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Invisible UI: drop decorative shadows; keep focus rings usable */
+@layer utilities {
+  .shadow,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl,
+  .drop-shadow,
+  .drop-shadow-sm,
+  .drop-shadow-md,
+  .drop-shadow-lg {
+    box-shadow: none !important;
+    filter: none !important;
+  }
 }

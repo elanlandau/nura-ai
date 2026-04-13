@@ -1,14 +1,13 @@
 import { StreamingTextResponse, OpenAIStream } from 'ai';
 import { Configuration, OpenAIApi } from 'openai-edge';
 import { prisma } from '@/lib/db';
-import { getSupabaseAdmin } from '@/lib/supabase/server';
-import { getCalendarAvailability, createCalendarEvent } from '@/lib/integrations/calendar';
-import { sendMeetingProposal } from '@/lib/integrations/email';
-import { listGmailMessages } from '@/lib/integrations/gmail';
-import { addDays } from 'date-fns';
-import type { OAuthAccount } from '@/lib/types';
+import { handleFunctionCall } from '@/lib/chat/function-handlers';
 
-const PRIOR_CONTEXT_MESSAGE_LIMIT = 10;
+/** Max messages from DB to send to the model (most recent, chronological). */
+const MAX_THREAD_MESSAGES_FOR_LLM = 100;
+
+/** Bump when changing system prompt shape — grep Vercel logs to confirm deploy. */
+const NURA_SYSTEM_PROMPT_BUILD = 'user-profile-v3-onboarding-2026-02-20';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -18,27 +17,6 @@ const config = new Configuration({
 });
 
 const openai = new OpenAIApi(config);
-
-async function getOAuthAccount(userId: string, provider: string): Promise<OAuthAccount | null> {
-  const row = await prisma.oAuthAccount.findUnique({
-    where: { user_id_provider: { user_id: userId, provider } },
-  });
-  if (!row) return null;
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    provider: row.provider as 'google' | 'microsoft',
-    provider_account_id: row.provider_account_id,
-    access_token: row.access_token,
-    refresh_token: row.refresh_token,
-    expires_at: row.expires_at,
-    token_type: row.token_type,
-    scope: row.scope,
-    email: row.email,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-  };
-}
 
 const functions = [
   {
@@ -174,176 +152,208 @@ CONTEXT-AWARE LANGUAGE (required): Use the same language as the current conversa
       required: ['provider'],
     },
   },
+  {
+    name: 'update_user_preferences',
+    description: `Saves durable facts to the user's long-term profile (UserChatProfile.preferences_summary in the database). Persists across ALL future chat threads.
+
+WHEN TO CALL (examples): nickname or how they want to be addressed; favorite color; language or communication preferences; typical work hours; standing meeting habits; timezone; dietary or accessibility notes they want remembered; preferred meeting length; industry/role context they asked you to remember.
+
+WHEN NOT TO CALL: one-off requests ("book tomorrow"), transient mood, secrets they asked not to store, or guessing preferences they did not state.
+
+BEHAVIOR: Call this tool silently—do not announce "I'm saving to your profile" unless the user asks how memory works. After the tool succeeds, answer their message naturally. Use mode "replace" only if they explicitly ask to reset or overwrite saved preferences.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        preferences_to_add: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'One short line per stable fact (concise). Can be empty if you only use display_name_update.',
+        },
+        mode: {
+          type: 'string',
+          enum: ['append', 'replace'],
+          description:
+            'append: merge new lines with existing profile (deduplicated). replace: overwrite entire preferences_summary—use only when the user asks to clear or replace saved preferences.',
+          default: 'append',
+        },
+        display_name_update: {
+          type: 'string',
+          description:
+            'Optional: new preferred name or nickname if they asked to be called something specific.',
+        },
+      },
+      required: ['preferences_to_add'],
+    },
+  },
 ];
 
-async function handleFunctionCall(functionName: string, functionArgs: any, userId: string) {
-  switch (functionName) {
-    case 'get_calendar_availability': {
-      const { provider, days_ahead = 7 } = functionArgs;
-
-      const account = await getOAuthAccount(userId, provider);
-
-      if (!account) {
-        return { error: `No ${provider} account connected. Please connect your account in the Connections page.` };
-      }
-
-      const startDate = new Date();
-      const endDate = addDays(startDate, days_ahead);
-
-      const availability = await getCalendarAvailability(account, startDate, endDate);
-
-      return { availability };
-    }
-
-    case 'propose_meeting_slots': {
-      const { provider, recipient_email, recipient_name, subject, message, time_slots } = functionArgs;
-
-      const account = await getOAuthAccount(userId, provider);
-
-      if (!account) {
-        return { error: `No ${provider} account connected. Please connect your account in the Connections page.` };
-      }
-
-      const emailThreadId = await sendMeetingProposal(account, {
-        recipientEmail: recipient_email,
-        recipientName: recipient_name,
-        subject,
-        message,
-        proposedSlots: time_slots,
-      });
-
-      const thread = await prisma.meetingThread.create({
-        data: {
-          user_id: userId,
-          recipient_email,
-          recipient_name: recipient_name ?? null,
-          subject,
-          proposed_slots: JSON.stringify(time_slots),
-          status: 'proposed',
-          email_thread_id: emailThreadId ?? null,
-        },
-      });
-
-      return {
-        success: true,
-        thread_id: thread.id,
-        message: `Meeting proposal sent to ${recipient_name} (${recipient_email})`,
-      };
-    }
-
-    case 'confirm_meeting': {
-      const { provider, thread_id, summary, description, time_slot, attendees } = functionArgs;
-
-      const account = await getOAuthAccount(userId, provider);
-
-      if (!account) {
-        return { error: `No ${provider} account connected. Please connect your account in the Connections page.` };
-      }
-
-      try {
-        const eventId = await createCalendarEvent(account, {
-          summary,
-          description: description || '',
-          start: time_slot,
-          attendees,
-        });
-
-        if (thread_id) {
-          await prisma.meetingThread.updateMany({
-            where: { id: thread_id, user_id: userId },
-            data: {
-              status: 'confirmed',
-              selected_slot: JSON.stringify(time_slot),
-              calendar_event_id: eventId,
-            },
-          });
-        }
-
-        return {
-          success: true,
-          event_id: eventId,
-          message: `Meeting confirmed and calendar event created`,
-        };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const isPermission = message.includes('CALENDAR_PERMISSION_DENIED') || message.includes('403') || message.includes('Forbidden');
-        if (isPermission) {
-          return {
-            error:
-              'Calendar write permission is missing. Go to **Connections**, disconnect Google, then connect again and allow "View and manage your calendar events".',
-          };
-        }
-        return { error: message };
-      }
-    }
-
-    case 'list_messages': {
-      const { provider, max_results = 20, query } = functionArgs;
-      console.log('[NURA list_messages]', { userId, provider, max_results, query });
-      if (provider !== 'google') {
-        console.error('[NURA list_messages] unsupported provider:', provider);
-        return { error: 'Only Google Gmail is supported for list_messages.' };
-      }
-      const account = await getOAuthAccount(userId, 'google');
-      if (!account) {
-        console.error('[NURA list_messages] no Google account for userId:', userId);
-        return { error: 'No Google account connected. Please connect Gmail in the Connections page.' };
-      }
-      try {
-        const messages = await listGmailMessages(account, {
-          maxResults: max_results,
-          query: query || undefined,
-        });
-        console.log('[NURA list_messages] OK count=', messages?.length ?? 0);
-        return { messages };
-      } catch (err) {
-        console.error('[NURA list_messages] ERROR', err instanceof Error ? err.message : err);
-        return { error: err instanceof Error ? err.message : 'Gmail request failed.' };
-      }
-    }
-
-    default:
-      return { error: 'Unknown function' };
+function getContentString(msg: { content?: unknown; parts?: unknown }): string {
+  const parts = msg.parts;
+  if (Array.isArray(parts)) {
+    const fromParts = parts
+      .map((p) => {
+        if (p == null || typeof p !== 'object') return '';
+        const o = p as { type?: string; text?: string };
+        if (o.type === 'text' && typeof o.text === 'string') return o.text;
+        if (typeof (p as { text?: string }).text === 'string') return (p as { text: string }).text;
+        return '';
+      })
+      .join('');
+    if (fromParts.trim()) return fromParts;
   }
-}
-
-function getContentString(msg: { content?: unknown }): string {
   const c = msg.content;
   if (typeof c === 'string') return c;
   if (Array.isArray(c)) return c.map((p) => (typeof p === 'string' ? p : (p as { text?: string })?.text ?? '')).join('');
   return '';
 }
 
-/** Fetches the last N messages for this thread from the DB (chronological order) for LLM context. */
-async function getPriorContextMessages(userId: string, threadId: string): Promise<{ role: 'user' | 'assistant' | 'system'; content: string }[]> {
+/** Loads persisted thread history from the DB (latest N messages, chronological) — single source of truth for the model. */
+async function getThreadMessagesForLlm(
+  userId: string,
+  threadId: string
+): Promise<{ role: 'user' | 'assistant' | 'system'; content: string }[]> {
   const rows = await prisma.chatMessage.findMany({
     where: { user_id: userId, thread_id: threadId },
     orderBy: { created_at: 'desc' },
-    take: PRIOR_CONTEXT_MESSAGE_LIMIT,
+    take: MAX_THREAD_MESSAGES_FOR_LLM,
   });
   const ordered = rows.reverse();
   return ordered.map((r) => ({
     role: (r.role === 'user' || r.role === 'assistant' || r.role === 'system' ? r.role : 'user') as 'user' | 'assistant' | 'system',
-    content: r.content ?? ' ',
+    content: (r.content ?? '').trim() || ' ',
   }));
 }
 
-/** Gets the authenticated user's display name from Supabase auth: display_name or full_name or name, fallback to email prefix. */
+type UserProfileForPrompt = {
+  /** Display name for prompts (e.g. "Elan") */
+  displayName: string;
+  /** Parsed preference lines from UserChatProfile.preferences_summary */
+  preferenceBullets: string[];
+};
+
+/**
+ * System instructions: global user profile (every thread) + thread history + tools.
+ */
+function buildNuraSystemPrompt(
+  historyMessageCount: number,
+  profile: UserProfileForPrompt
+): string {
+  const who = profile.displayName.trim() || 'the user';
+  const prefsBlock =
+    profile.preferenceBullets.length > 0
+      ? profile.preferenceBullets.map((p) => `- ${p}`).join('\n')
+      : 'None on file yet—learn their style in this chat; preferences can be saved to their profile for future threads.';
+
+  const historyNote =
+    historyMessageCount === 0
+      ? 'This thread has no prior messages yet (brand-new chat). You still have GLOBAL USER CONTEXT above. When messages appear below, they are only for this thread.'
+      : `There are ${historyMessageCount} saved message(s) in this thread. The messages immediately AFTER this system message are the real conversation history from the database (chronological). You MUST read them and use them: continue topics naturally, remember names, preferences, tasks, and tone they used before. Do not pretend you cannot see earlier turns—this history is your memory for this chat.`;
+
+  return [
+    `[NURA prompt build: ${NURA_SYSTEM_PROMPT_BUILD}]`,
+    '',
+    'GLOBAL USER CONTEXT (applies to EVERY thread, including brand-new chats with no history below):',
+    `You are talking to ${who}. Their preferences and notes from past conversations are:`,
+    prefsBlock,
+    '',
+    'You are NURA, a premium executive AI assistant. You are speaking with this user across threads—respect GLOBAL USER CONTEXT above on every reply.',
+    '',
+    'LONG-TERM PROFILE (critical): You have the ability to remember long-term facts. When a user shares a personal detail that should persist (nickname, favorite color, work habits, communication preferences, how they want to be addressed, etc.), silently call the update_user_preferences tool so it is saved to their database profile—do not narrate the save unless they ask how memory works. After saving, continue naturally. Use append mode by default; use replace only if they ask to clear or overwrite saved preferences.',
+    '',
+    'CONVERSATION MEMORY (this thread only):',
+    historyNote,
+    '',
+    'LANGUAGE (critical): Mirror the user’s language in every reply. If they write in Hebrew, respond fully in Hebrew. If they write in English, respond fully in English. Same for any other language they use. Do not switch languages unless the user mixes them first. Match formality and tone to the conversation history when possible.',
+    '',
+    'PERSONALIZATION: Combine GLOBAL USER CONTEXT with this thread’s history—refer back to what they asked, commitments you made, names they mentioned, and their style. If the profile includes onboarding details (main goal, preferred language, golden rules), greet them by name when fitting and let your tone reflect their stated goals and rules.',
+    '',
+    `You are NURA, a global, multi-language AI personal assistant specialized in calendar management, email, and meeting scheduling. You help users:
+- Check their calendar availability
+- Read and scan their Gmail inbox (use the list_messages tool)
+- Propose meeting times to others via email
+- Confirm and create calendar events
+
+BACKGROUND SCANNING (NURA Pulse): You have 24/7 background scanning enabled. Unread emails are automatically scanned every 15 minutes for meeting requests and urgent items. These insights appear in the user's Inbox (מיילים) in the app. When users ask about their inbox or what's urgent, you can mention that NURA Pulse is already scanning and they can check the Inbox page for a digest; you can also use list_messages for real-time lookup when they need something specific.
+
+Efficiency rules:
+- When searching Gmail, use specific queries (e.g. from:dhl, subject:watch, from:amazon) instead of listing all messages. Pass the \`query\` parameter to list_messages with a narrow search.
+- Prioritize speed: if you find the answer in the first few results (e.g. first 5), stop searching and answer immediately. Use max_results: 5 when a targeted query is enough.
+- Only fetch more messages or do a second search if the first result set didn't contain the answer.
+
+You have access to tools: Google Calendar/Gmail (list_messages, get_calendar_availability, propose_meeting_slots, confirm_meeting) and update_user_preferences for durable user profile updates. When users ask about their inbox or email, use list_messages (provider: google) with a specific \`query\` when possible. When users ask about scheduling, guide them through the process step by step.
+
+Important:
+- Use list_messages with a targeted \`query\` (e.g. from:sender, subject:keyword) instead of fetching the whole inbox
+- Always ask which provider (google or microsoft) to use if not specified for calendar/meeting tools
+- Confirm details before sending emails or creating events
+- Be proactive in suggesting next steps
+
+CONTEXT-AWARE EMAILS (propose_meeting_slots): Use the language of the current conversation for 100% of the email—Subject, Greeting, Body, and Closing. If the conversation is in Hebrew, the email is 100% Hebrew (RTL). If in English, 100% English (LTR). If French, Spanish, Arabic, etc., the email must be perfectly formatted in that language. Dynamic formatting: RTL languages (e.g. Hebrew, Arabic) get dir='rtl' in the email HTML; LTR languages get dir='ltr'. Maintain a high-end, polite, and organized tone in every language—like a premium personal assistant. Subject: clean, no extra characters. Body: short paragraphs, one idea per line, blank line between paragraphs.`,
+  ].join('\n');
+}
+
+/** Gets the authenticated user's display name from the NextAuth User table via Prisma. */
 async function getUserDisplayName(userId: string): Promise<string | null> {
   try {
-    const { data: { user }, error } = await getSupabaseAdmin().auth.admin.getUserById(userId);
-    if (error) {
-      console.log('[chat] getUserDisplayName error for userId', userId.slice(0, 8) + '...', error.message);
-      return null;
-    }
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
     if (!user) return null;
-    const meta = user.user_metadata as { display_name?: string; full_name?: string; name?: string } | null;
-    const name = meta?.display_name ?? meta?.full_name ?? meta?.name ?? (user.email?.split('@')[0] ?? null);
-    return name ?? null;
+    return user.name ?? user.email?.split('@')[0] ?? null;
   } catch (e) {
     console.log('[chat] getUserDisplayName exception', e instanceof Error ? e.message : e);
     return null;
   }
+}
+
+/** Split stored profile text into bullet lines (newlines; optional leading - * •). */
+function parsePreferenceBullets(text: string | null | undefined): string[] {
+  if (!text?.trim()) return [];
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^\s*[-*•]\s*/, '').trim())
+    .filter((line) => line.length > 0);
+}
+
+/**
+ * Loads `UserChatProfile` for this user (cross-thread). Creates a row on first chat if missing.
+ * `preferences_summary` is freeform text in the DB — one preference per line works best for [X, Y, Z] in the prompt.
+ */
+async function resolveUserProfileForPrompt(userId: string, authDisplayName: string | null): Promise<UserProfileForPrompt> {
+  const authName = authDisplayName?.trim() ?? '';
+
+  const existing = await prisma.userChatProfile.findUnique({ where: { user_id: userId } });
+
+  if (!existing) {
+    const created = await prisma.userChatProfile.create({
+      data: {
+        user_id: userId,
+        display_name: authName || null,
+        preferences_summary: null,
+        // Main chat is only reachable after onboarding; avoid trapping users without the flag.
+        onboarding_completed: true,
+      },
+    });
+    return {
+      displayName: created.display_name?.trim() || authName || 'the user',
+      preferenceBullets: parsePreferenceBullets(created.preferences_summary),
+    };
+  }
+
+  if (!existing.display_name?.trim() && authName) {
+    const updated = await prisma.userChatProfile.update({
+      where: { user_id: userId },
+      data: { display_name: authName },
+    });
+    return {
+      displayName: updated.display_name?.trim() || authName,
+      preferenceBullets: parsePreferenceBullets(updated.preferences_summary),
+    };
+  }
+
+  return {
+    displayName: existing.display_name?.trim() || authName || 'the user',
+    preferenceBullets: parsePreferenceBullets(existing.preferences_summary),
+  };
 }
 
 export async function POST(req: Request) {
@@ -388,20 +398,38 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Thread not found or access denied. Start a new chat.' }, { status: 404 });
     }
 
-    const priorContext = await getPriorContextMessages(userId, threadId);
     const userDisplayName = await getUserDisplayName(userId);
+    const userProfile = await resolveUserProfileForPrompt(userId, userDisplayName);
 
+    // 1) Persist the latest user turn first so it is included when we load history from the DB.
     if (messages.length > 0) {
       const last = messages[messages.length - 1];
-      if (last && typeof last === 'object' && (last as { role?: string }).role === 'user') {
-        const content = getContentString(last as { content?: unknown });
+      if (last?.role === 'user') {
+        const content = getContentString(last as { content?: unknown; parts?: unknown });
         if (content && String(content).trim()) {
-          await prisma.chatMessage.create({
-            data: { thread_id: threadId, user_id: userId, role: 'user', content: String(content).slice(0, 100_000) },
-          }).catch((e: unknown) => console.error('[chat] save user message', e));
+          try {
+            await prisma.chatMessage.create({
+              data: {
+                thread_id: threadId,
+                user_id: userId,
+                role: 'user',
+                content: String(content).slice(0, 100_000),
+              },
+            });
+            await prisma.chatThread.updateMany({
+              where: { id: threadId, user_id: userId },
+              data: { updated_at: new Date() },
+            });
+          } catch (e: unknown) {
+            console.error('[chat] save user message', e);
+            return Response.json({ error: 'Failed to save your message. Please try again.' }, { status: 500 });
+          }
         }
       }
     }
+
+    // 2) Model context comes only from persisted rows (refresh-safe, avoids duplicate / empty client payloads).
+    const historyFromDb = await getThreadMessagesForLlm(userId, threadId);
 
     const apiKey = process.env.OPENAI_API_KEY ?? '';
     if (!apiKey || apiKey === 'mock-key' || apiKey.startsWith('sk-placeholder')) {
@@ -411,42 +439,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const systemBase = `You are NURA, a global, multi-language AI personal assistant specialized in calendar management, email, and meeting scheduling. You help users:
-- Check their calendar availability
-- Read and scan their Gmail inbox (use the list_messages tool)
-- Propose meeting times to others via email
-- Confirm and create calendar events
+    const systemContent = buildNuraSystemPrompt(historyFromDb.length, userProfile);
 
-BACKGROUND SCANNING (NURA Pulse): You have 24/7 background scanning enabled. Unread emails are automatically scanned every 15 minutes for meeting requests and urgent items. These insights appear in the user's Inbox (מיילים) in the app. When users ask about their inbox or what's urgent, you can mention that NURA Pulse is already scanning and they can check the Inbox page for a digest; you can also use list_messages for real-time lookup when they need something specific.
-
-AUTO-LANGUAGE DETECTION (critical): Detect the language the user is speaking and respond strictly in that same language. If they write in Hebrew, respond in Hebrew. If English, respond in English. If French, Spanish, Arabic, or any other language, respond in that language. Never mix languages unless the user does. Be as helpful as possible—give complete answers and never stop mid-sentence.
-
-Efficiency rules:
-- When searching Gmail, use specific queries (e.g. from:dhl, subject:watch, from:amazon) instead of listing all messages. Pass the \`query\` parameter to list_messages with a narrow search.
-- Prioritize speed: if you find the answer in the first few results (e.g. first 5), stop searching and answer immediately. Use max_results: 5 when a targeted query is enough.
-- Only fetch more messages or do a second search if the first result set didn't contain the answer.
-
-You have access to tools to interact with Google Calendar and Gmail. When users ask about their inbox or email, use list_messages (provider: google) with a specific \`query\` when possible. When users ask about scheduling, guide them through the process step by step.
-
-Important:
-- Use list_messages with a targeted \`query\` (e.g. from:sender, subject:keyword) instead of fetching the whole inbox
-- Always ask which provider (google or microsoft) to use if not specified for calendar/meeting tools
-- Confirm details before sending emails or creating events
-- Be proactive in suggesting next steps
-
-CONTEXT-AWARE EMAILS (propose_meeting_slots): Use the language of the current conversation for 100% of the email—Subject, Greeting, Body, and Closing. If the conversation is in Hebrew, the email is 100% Hebrew (RTL). If in English, 100% English (LTR). If French, Spanish, Arabic, etc., the email must be perfectly formatted in that language. Dynamic formatting: RTL languages (e.g. Hebrew, Arabic) get dir='rtl' in the email HTML; LTR languages get dir='ltr'. Maintain a high-end, polite, and organized tone in every language—like a premium personal assistant. Subject: clean, no extra characters. Body: short paragraphs, one idea per line, blank line between paragraphs.`;
-
-    const userNameForPrompt = userDisplayName ?? 'the user';
-    const systemContent = `Your name is NURA. You are talking to ${userNameForPrompt}. Always remember their name and past context from the database.\n\n` + systemBase;
-
-    const baseMessagesForCompletion = [
-      { role: 'system' as const, content: systemContent },
-      ...priorContext,
-      ...messages,
+    // System message first, then DB thread in chronological order (includes the user message just saved).
+    const baseMessagesForCompletion: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+      { role: 'system', content: systemContent },
+      ...historyFromDb,
     ];
 
-    console.log('VERSION_CHECK_1');
-    console.log('Fetching data for user:', userId);
+    console.log(
+      '[chat] LLM context: build=%s threadId=%s historyMessages=%d user=%s prefsLines=%d',
+      NURA_SYSTEM_PROMPT_BUILD,
+      threadId,
+      historyFromDb.length,
+      userProfile.displayName,
+      userProfile.preferenceBullets.length
+    );
     console.log('[chat] finalMessages sent to OpenAI:', JSON.stringify(baseMessagesForCompletion, null, 2));
 
     const response = await openai.createChatCompletion({
@@ -477,7 +485,7 @@ CONTEXT-AWARE EMAILS (propose_meeting_slots): Use the language of the current co
 
         const newMessages = createFunctionCallMessages(result as any);
         const followUpMessages = [...baseMessagesForCompletion, ...newMessages];
-        console.log('[chat] tool follow-up completion: full context (system + priorContext + messages + tool msgs), message count:', followUpMessages.length);
+        console.log('[chat] tool follow-up completion: full context (system + DB history + tool msgs), message count:', followUpMessages.length);
         return openai.createChatCompletion({
           model: 'gpt-4o',
           stream: true,

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { useSession } from 'next-auth/react';
 import { OAuthAccount } from '@/lib/types';
 import { Loader2, Mail, MessageCircle, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -104,8 +103,9 @@ function IntegrationCard({
 export default function ConnectionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession();
+  const user = session?.user ?? null;
+  const loading = status === 'loading';
   const [googleAccount, setGoogleAccount] = useState<OAuthAccount | null>(null);
   const [connectionMessage, setConnectionMessage] = useState<'success' | 'error' | null>(null);
   const [connectLoading, setConnectLoading] = useState(false);
@@ -123,24 +123,20 @@ export default function ConnectionsPage() {
   }, [searchParams, router]);
 
   useEffect(() => {
+    if (!user?.id) return;
     let cancelled = false;
     const work = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-        const uid = session?.user?.id ?? 'guest-user-bypass';
-        const res = await fetch(`/api/connections?userId=${encodeURIComponent(uid)}`);
+        const res = await fetch(`/api/connections?userId=${encodeURIComponent(user.id)}`);
         const accounts: OAuthAccount[] = res.ok ? await res.json() : [];
         if (!cancelled) setGoogleAccount(accounts.find((a) => a.provider === 'google') ?? null);
       } catch {
         if (!cancelled) setGoogleAccount(null);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     };
     work();
     return () => { cancelled = true; };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (connectionMessage === null) return;
@@ -148,7 +144,7 @@ export default function ConnectionsPage() {
     return () => clearTimeout(t);
   }, [connectionMessage]);
 
-  const effectiveUserId = user?.id ?? 'guest-user-bypass';
+  const effectiveUserId = user?.id ?? '';
 
   const handleGoogleConnect = () => {
     setConnectLoading(true);

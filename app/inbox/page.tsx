@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Mail, Calendar, AlertCircle, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import { useSupabase } from '@/lib/supabase/provider';
+import { useSession } from 'next-auth/react';
 import { formatDistanceToNow } from 'date-fns';
 import { he } from 'date-fns/locale/he';
 import { cn } from '@/lib/utils';
@@ -40,7 +40,8 @@ const TYPE_CONFIG: Record<NotificationType, { label: string; icon: typeof Mail; 
 };
 
 export default function InboxPage() {
-  const { user } = useSupabase();
+  const { data: session } = useSession();
+  const user = session?.user ?? null;
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
 

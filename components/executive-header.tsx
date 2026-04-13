@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useSupabase } from '@/lib/supabase/provider';
-import { Cloud, Bell } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { MobileMenuButton } from '@/components/mobile-menu-button';
 import {
   isSupported,
@@ -13,7 +13,6 @@ import {
   getVapidPublicKey,
   subscribeAndSave,
 } from '@/lib/notifications';
-import { Button } from '@/components/ui/button';
 
 function getTimeBasedGreeting(): string {
   const hour = new Date().getHours();
@@ -23,14 +22,38 @@ function getTimeBasedGreeting(): string {
 }
 
 export function ExecutiveHeader() {
-  const { user } = useSupabase();
-  const name = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0] ?? 'there';
+  const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user ?? null;
+  const name = user?.name ?? user?.email?.split('@')[0] ?? 'there';
   const greeting = getTimeBasedGreeting();
   const permissionAsked = useRef(false);
+  const [weatherLine, setWeatherLine] = useState<string | null>(null);
 
-  // Ask for notification permission when user first lands on dashboard (protected layout).
+  const isHome = pathname === '/home';
+
   useEffect(() => {
-    const uid = user?.id;
+    if (isHome) {
+      setWeatherLine(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/weather');
+        const data = (await r.json()) as { line?: string };
+        if (!cancelled && data.line) setWeatherLine(data.line);
+      } catch {
+        if (!cancelled) setWeatherLine(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isHome]);
+
+  useEffect(() => {
+    const uid = user?.id as string | undefined;
     if (!uid || !isSupported() || permissionAsked.current) return;
     permissionAsked.current = true;
     async function setup() {
@@ -38,7 +61,6 @@ export function ExecutiveHeader() {
         await requestPermission();
       }
       await registerServiceWorker();
-      // So Nura can send when tab is closed: subscribe and save if VAPID is configured.
       if (permissionState() === 'granted' && getVapidPublicKey()) {
         subscribeAndSave(uid as string).catch(() => {});
       }
@@ -61,26 +83,32 @@ export function ExecutiveHeader() {
   };
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-4 px-4 md:px-8 min-h-[3rem] border-b border-[var(--border-subtle)] bg-[var(--header-bg)] w-full">
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="flex min-h-[4.5rem] shrink-0 items-center justify-between gap-8 px-8 md:px-16 py-6 border-0 border-b border-black bg-[#FCFAF7] w-full">
+      <div className="flex items-center gap-8 min-w-0">
         <MobileMenuButton />
-        <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-          {greeting}, {name}
-        </p>
+        {!isHome && (
+          <p className="text-[11px] leading-relaxed text-black/80 tracking-wide">
+            {greeting}, {name}
+          </p>
+        )}
       </div>
-      <div className="flex items-center gap-2 text-[var(--text-muted)] shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs gap-1.5 h-8 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+      <div className="flex items-center gap-10 text-black/45 shrink-0">
+        <button
+          type="button"
           onClick={handleTestAlert}
           title="Send a test desktop notification"
+          className="text-[9px] uppercase tracking-[0.28em] hover:text-black transition-colors"
         >
-          <Bell className="h-3.5 w-3.5" />
-          Test Alert
-        </Button>
-        <Cloud className="h-4 w-4 shrink-0" />
-        <span className="text-sm">Tel Aviv, 22°C</span>
+          Test alert
+        </button>
+        {!isHome && weatherLine && (
+          <span
+            className="text-[11px] leading-relaxed max-w-[min(100vw-14rem,22rem)] text-black/55 hidden sm:block"
+            title={weatherLine}
+          >
+            {weatherLine}
+          </span>
+        )}
       </div>
     </header>
   );

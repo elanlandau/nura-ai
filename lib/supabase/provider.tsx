@@ -1,61 +1,33 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from './client';
+import { SessionProvider, useSession } from 'next-auth/react';
+import type { Session } from 'next-auth';
 
-interface SupabaseContextType {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
+/**
+ * Wraps the app in NextAuth's SessionProvider.
+ * Use `useSession()` from `next-auth/react` in client components,
+ * or `getServerSession(authOptions)` in Server Components / API routes.
+ */
+export function SupabaseProvider({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session?: Session | null;
+}) {
+  return <SessionProvider session={session}>{children}</SessionProvider>;
 }
 
-const SupabaseContext = createContext<SupabaseContextType>({
-  user: null,
-  session: null,
-  loading: true,
-});
-
-export function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Get initial session with timeout so we don't block forever if Supabase is unreachable
-    const timeoutMs = 3000;
-    const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-      setTimeout(() => resolve({ data: { session: null } }), timeoutMs)
-    );
-    Promise.race([supabase.auth.getSession(), timeoutPromise])
-      .then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      })
-      .catch(() => {
-        setSession(null);
-        setUser(null);
-        setLoading(false);
-      });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  return (
-    <SupabaseContext.Provider value={{ user, session, loading }}>
-      {children}
-    </SupabaseContext.Provider>
-  );
+/**
+ * Compatibility shim: components that previously called `useSupabase()`
+ * now get back `{ user, loading }` sourced from NextAuth.
+ * `user` has `id`, `name`, `email`, `image` — matches NextAuth Session.user.
+ */
+export function useSupabase() {
+  const { data: session, status } = useSession();
+  return {
+    user: session?.user ?? null,
+    session,
+    loading: status === 'loading',
+  };
 }
-
-export const useSupabase = () => useContext(SupabaseContext);

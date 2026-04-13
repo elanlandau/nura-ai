@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ChatInterface } from '@/components/chat-interface';
-import { useSupabase } from '@/lib/supabase/provider';
+import { useSession } from 'next-auth/react';
 import { Sparkles, Loader2, Mail } from 'lucide-react';
 
 interface EmailSummary {
@@ -16,7 +16,8 @@ interface EmailSummary {
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
-  const { user } = useSupabase();
+  const { data: session } = useSession();
+  const user = session?.user ?? null;
   const [digest, setDigest] = useState<string | null>(null);
   const [digestLoading, setDigestLoading] = useState(true);
   const [emailSummary, setEmailSummary] = useState<EmailSummary | null>(null);
@@ -59,43 +60,43 @@ export default function ChatPage() {
   if (!user) return null;
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 bg-[var(--bg)]">
-      <div className="flex-1 min-h-0 flex flex-col px-8 pb-8 max-w-3xl w-full mx-auto">
+    <div className="flex flex-1 flex-col min-h-0 w-full bg-transparent">
+      <div className="flex-1 min-h-0 flex flex-col w-full">
         {(digest !== null || digestLoading) && (
-          <div className="shrink-0 mb-6 rounded-[var(--radius-salon)] glass-hero p-8">
+          <div className="shrink-0 mb-8 border-0 border-b border-black pb-6">
             <div className="flex items-center gap-3 mb-3">
-              <Sparkles className="h-5 w-5 text-[var(--accent)]" />
-              <span className="text-sm font-medium text-[var(--text-primary)]">NURA Insights</span>
+              <Sparkles className="h-4 w-4 text-black" />
+              <span className="gallery-heading text-lg text-black">NURA Insights</span>
             </div>
             {digestLoading ? (
-              <p className="text-sm text-[var(--text-muted)] flex items-center gap-2">
+              <p className="text-sm text-black/50 flex items-center gap-2 tracking-wide leading-relaxed">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Loading...
               </p>
             ) : (
-              <p className="text-sm text-[var(--text-muted)]">{digest || 'Connect Gmail in Connections for a digest.'}</p>
+              <p className="text-sm text-black/55 tracking-wide leading-relaxed">{digest || 'Connect Gmail in Connections for a digest.'}</p>
             )}
           </div>
         )}
         {(emailId && (emailLoading || emailSummary)) && (
-          <div className="shrink-0 mb-6 rounded-[var(--radius-salon)] glass-hero p-6 border border-[var(--border-subtle)]">
+          <div className="shrink-0 mb-8 border-0 border-b border-black pb-6">
             <div className="flex items-center gap-3 mb-2">
-              <Mail className="h-4 w-4 text-[var(--accent)]" />
-              <span className="text-sm font-medium text-[var(--text-primary)]">Important email</span>
+              <Mail className="h-4 w-4 text-black" />
+              <span className="gallery-heading text-base text-black">Important email</span>
             </div>
             {emailLoading ? (
-              <p className="text-sm text-[var(--text-muted)] flex items-center gap-2">
+              <p className="text-sm text-black/50 flex items-center gap-2 tracking-wide">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Loading email...
               </p>
             ) : emailSummary ? (
               <>
-                <p className="text-sm font-medium text-[var(--text-primary)] truncate" title={emailSummary.subject}>
+                <p className="text-sm font-medium text-black truncate tracking-wide" title={emailSummary.subject}>
                   {emailSummary.subject || '(No subject)'}
                 </p>
-                <p className="text-xs text-[var(--text-muted)] mt-1">{emailSummary.from}</p>
-                <p className="text-sm text-[var(--text-muted)] mt-2 line-clamp-2">{emailSummary.snippet}</p>
-                <p className="text-xs text-[var(--text-muted)] mt-3">
+                <p className="text-xs text-black/45 mt-1 tracking-wide">{emailSummary.from}</p>
+                <p className="text-sm text-black/55 mt-2 line-clamp-2 leading-relaxed">{emailSummary.snippet}</p>
+                <p className="text-xs text-black/45 mt-3 tracking-wide leading-relaxed">
                   Ask Nura to summarize or reply to this email.
                 </p>
               </>

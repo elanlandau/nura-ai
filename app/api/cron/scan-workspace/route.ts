@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { supabase as supabaseDb } from '@/lib/supabase/client';
 import { listGmailMessages } from '@/lib/integrations/gmail';
-import { getSupabaseAdmin } from '@/lib/supabase/server';
 import { classifyEmailWithLLM } from '@/lib/nura-pulse';
 import type { OAuthAccount } from '@/lib/types';
 import type { GmailMessageSummary } from '@/lib/integrations/gmail';
@@ -16,33 +16,31 @@ export interface ClassificationLog {
   reason?: string;
 }
 
+/** Maps a NextAuth Account row (Prisma) to the app's OAuthAccount type. */
 function mapRowToOAuthAccount(row: {
   id: string;
-  user_id: string;
+  userId: string;
   provider: string;
-  provider_account_id: string;
+  providerAccountId: string;
   access_token: string | null;
   refresh_token: string | null;
   expires_at: number | null;
   token_type: string | null;
   scope: string | null;
-  email: string | null;
-  created_at: Date;
-  updated_at: Date;
 }): OAuthAccount {
   return {
     id: row.id,
-    user_id: row.user_id,
+    user_id: row.userId,
     provider: row.provider as 'google' | 'microsoft',
-    provider_account_id: row.provider_account_id,
+    provider_account_id: row.providerAccountId,
     access_token: row.access_token,
     refresh_token: row.refresh_token,
     expires_at: row.expires_at,
     token_type: row.token_type,
     scope: row.scope,
-    email: row.email,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
+    email: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -65,9 +63,9 @@ export async function GET(request: NextRequest) {
   let notificationsCreated = 0;
 
   try {
-    const accounts = await prisma.oAuthAccount.findMany({
+    // Use NextAuth Account model (replaces OAuthAccount)
+    const accounts = await prisma.account.findMany({
       where: { provider: 'google' },
-      orderBy: { updated_at: 'desc' },
     });
 
     for (const row of accounts) {
@@ -100,7 +98,7 @@ export async function GET(request: NextRequest) {
           const title = msg.subject || '(No subject)';
           const body = [msg.from, msg.snippet].filter(Boolean).join(' · ');
 
-          const { error } = await getSupabaseAdmin().from('notifications').insert({
+          const { error } = await supabaseDb.from('notifications').insert({
             user_id: userId,
             type,
             title,
